@@ -4,12 +4,20 @@ const root=document.querySelector('#game');
 root.innerHTML="<div id='hud'><header><b>PROJECT BATTLE ROYALE</b><small>ALPHA 0.4 · FIXED SHOULDER CAMERA</small></header><div class='stats'><span>生命 <b id='hp'>100</b></span><span>擊殺 <b id='kills'>0</b></span><span>敵人 <b id='left'>5</b></span><span id='timer'>00:00</span></div><div class='cross'>+</div><div class='help'>WASD 移動 · Shift 衝刺 · Space 跳躍<br>左鍵射擊 · 右鍵瞄準 · R 裝填 · 1–4 換槍</div><div class='weapon'><b id='weapon'>突擊步槍</b><strong id='ammo'>30</strong><small id='reserve'>/ 150</small><p id='hint'>全自動 · 中距離</p></div><div id='hit'>✕</div><div id='damage'></div><div id='toast'></div></div><div id='overlay' class='visible'><section><small>TRAINING ARENA · BUILD 0.4</small><h1>PROJECT<br><em>BATTLE ROYALE</em></h1><p id='desc'>AI 敵人已進駐訓練場。利用掩體、切換武器並消滅所有敵人。</p><div class='tags'>第三人稱射擊　·　4 種武器　·　AI 敵人　·　生命系統</div><button id='start'>開始戰鬥</button><small class='note'>建議使用電腦與滑鼠遊玩</small></section></div>";
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x899b8b);scene.fog=new THREE.Fog(0x899b8b,38,115);
 const camera=new THREE.PerspectiveCamera(67,innerWidth/innerHeight,.1,180);
-const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFShadowMap;root.prepend(renderer.domElement);
+const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.08;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;root.prepend(renderer.domElement);
 scene.add(new THREE.HemisphereLight(0xdce9ff,0x4d5848,2.1));const sun=new THREE.DirectionalLight(0xffe3bd,2.6);sun.position.set(-24,38,18);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);sun.shadow.camera.left=-72;sun.shadow.camera.right=72;sun.shadow.camera.top=72;sun.shadow.camera.bottom=-72;sun.shadow.camera.near=1;sun.shadow.camera.far=125;sun.shadow.bias=-0.00025;scene.add(sun);
 const materialCache=new Map();const mat=c=>{if(!materialCache.has(c))materialCache.set(c,new THREE.MeshStandardMaterial({color:c,roughness:.86}));return materialCache.get(c);};
 const worldSolids=[],solidBounds=[],pickupBounds=[],obstacleColliders=[];
 const ground=new THREE.Mesh(new THREE.PlaneGeometry(180,180),mat(0x65745b));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
 const grid=new THREE.GridHelper(120,30,0x78866e,0x6d7b64);grid.position.y=.015;grid.material.transparent=true;grid.material.opacity=.22;scene.add(grid);
+// Military training-ground surfacing, road paint and concrete firing lanes
+function floorPatch(x,z,w,d,color,y=.022){const m=new THREE.Mesh(new THREE.PlaneGeometry(w,d),new THREE.MeshStandardMaterial({color,roughness:.96}));m.rotation.x=-Math.PI/2;m.position.set(x,y,z);m.receiveShadow=true;scene.add(m);return m;}
+floorPatch(0,-30,9,88,0x454b49);floorPatch(-30,0,8,86,0x55594f);floorPatch(0,0,34,28,0x77796c,.026);
+for(let z=-42;z<43;z+=8){floorPatch(0,z,.18,3.2,0xc5b98d,.04);}
+for(let x=-3;x<=3;x+=1.5){floorPatch(x,0,.08,18,0x999582,.043);}
+for(const x of [-34,-26,26,34])floorPatch(x,0,5,6,0x777b70,.028);
+// Subtle perimeter gravel and scattered ground cover break up the flat arena
+for(let i=0;i<46;i++){const a=i*2.399,rad=24+(i%7)*3,x=Math.cos(a)*rad,z=Math.sin(a)*rad;const pebble=new THREE.Mesh(new THREE.DodecahedronGeometry(.18+(i%3)*.08,0),mat(i%2?0x777966:0x91876e));pebble.position.set(x,.11,z);pebble.scale.y=.42;pebble.castShadow=false;scene.add(pebble);}
 function block(x,y,z,w,h,d,c){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat(c));m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;scene.add(m);worldSolids.push(m);m.updateMatrixWorld(true);solidBounds.push(new THREE.Box3().setFromObject(m));obstacleColliders.push({kind:'box',x,z,halfX:w/2,halfZ:d/2,minY:y-h/2,maxY:y+h/2,jumpable:h<.9});}
 for(let i=-3;i<=3;i++){block(i*15,2,-48,14,4,1.2,0x777d70);block(i*15,2,48,14,4,1.2,0x777d70);}
 for(let i=-2;i<=2;i++){block(-53,2,i*18,1.2,4,17,0x777d70);block(53,2,i*18,1.2,4,17,0x777d70);}
@@ -31,10 +39,22 @@ function tree(x,z,scale=1){const g=new THREE.Group();const trunk=new THREE.Mesh(
 for(let i=0;i<6;i++){const x=-18+i*7,z=(i%2===0? -7:7);block(x,.34,z,1.35,.68,1.05,i%2?0x786448:0x8b7655);}
 for(let i=0;i<4;i++){const x=-29+i*5,z=25;const log=new THREE.Mesh(new THREE.CylinderGeometry(.34,.34,2.8,9),mat(0x6b5037));log.rotation.z=Math.PI/2;log.position.set(x,.34,z);log.castShadow=true;log.receiveShadow=true;scene.add(log);worldSolids.push(log);log.updateMatrixWorld(true);solidBounds.push(new THREE.Box3().setFromObject(log));obstacleColliders.push({kind:'box',x,z,halfX:1.4,halfZ:.34,minY:0,maxY:.68,jumpable:true});}
 
-const player=new THREE.Group();scene.add(player);
-const body=new THREE.Mesh(new THREE.CapsuleGeometry(.38,.86,5,9),mat(0x344b3d));body.position.y=1.02;player.add(body);
-const head=new THREE.Mesh(new THREE.SphereGeometry(.24,12,10),mat(0xb58d70));head.position.y=1.72;player.add(head);
-const gun=new THREE.Mesh(new THREE.BoxGeometry(.13,.14,.85),mat(0x252b28));gun.position.set(.38,1.25,-.6);player.add(gun);
+function soldierVisual(g,uniformColor=0x35483b,vestColor=0x26352d,skinColor=0xb58d70){const add=(geo,color,pos,rot)=>{const m=new THREE.Mesh(geo,mat(color));m.position.set(...pos);if(rot)m.rotation.set(...rot);m.castShadow=true;m.receiveShadow=true;g.add(m);return m;};
+ add(new THREE.CapsuleGeometry(.34,.68,5,9),uniformColor,[0,1.05,0]);
+ add(new THREE.BoxGeometry(.66,.62,.34),vestColor,[0,1.13,-.025]);
+ add(new THREE.BoxGeometry(.7,.12,.38),0x17231e,[0,.78,0]);
+ for(let side of [-1,1]){add(new THREE.CapsuleGeometry(.135,.56,4,7),uniformColor,[side*.43,1.13,-.04],[0,0,side*-.16]);add(new THREE.SphereGeometry(.15,9,7),0x303b33,[side*.43,.78,-.1]);add(new THREE.CapsuleGeometry(.155,.58,4,7),uniformColor,[side*.18,.43,.015],[0,0,side*-.035]);add(new THREE.BoxGeometry(.32,.18,.48),0x1b2420,[side*.18,.12,-.045]);add(new THREE.BoxGeometry(.2,.25,.12),vestColor,[side*.23,1.08,-.22]);}
+ add(new THREE.SphereGeometry(.215,12,10),skinColor,[0,1.77,-.015]);
+ add(new THREE.SphereGeometry(.265,12,9,0,Math.PI*2,0,Math.PI*.58),0x344238,[0,1.88,0]);
+ add(new THREE.BoxGeometry(.44,.09,.31),0x202b25,[0,1.78,-.17]);
+ add(new THREE.BoxGeometry(.31,.075,.035),0x8b9a8b,[0,1.77,-.193]);
+ add(new THREE.BoxGeometry(.34,.42,.2),0x26362e,[0,1.18,.29]);
+ add(new THREE.BoxGeometry(.09,.48,.045),0x9b875e,[-.19,1.18,-.205]);
+ add(new THREE.BoxGeometry(.09,.48,.045),0x9b875e,[.19,1.18,-.205]);
+ for(let j=0;j<3;j++)add(new THREE.BoxGeometry(.14,.16,.1),0x4b5b45,[(j-1)*.17,.94,-.23]);
+ const rifle=new THREE.Group();add.call(null,new THREE.BoxGeometry(.13,.13,.78),0x202723,[.37,1.22,-.56]);add.call(null,new THREE.BoxGeometry(.1,.22,.16),0x171d1a,[.37,1.08,-.42]);add.call(null,new THREE.CylinderGeometry(.035,.035,.4,8),0x111715,[.37,1.23,-1.03],[Math.PI/2,0,0]);
+}
+const player=new THREE.Group();scene.add(player);soldierVisual(player,0x46594a,0x293a31,0xb58d70);
 const defs=[['突擊步槍',30,150,25,115,1450,.012,1,'全自動 · 中距離'],['狙擊步槍',5,35,100,900,1900,.001,1,'高傷害 · 精準射擊'],['手槍',12,72,34,280,1050,.018,1,'半自動 · 快速切換'],['霰彈槍',6,36,17,650,1550,.075,8,'近距離 · 8 發散射']];
 const weapons=defs.map(a=>({name:a[0],mag:a[1],ammo:a[1],reserve:a[2],damage:a[3],rate:a[4],reload:a[5],spread:a[6],pellets:a[7],hint:a[8]}));
 let wi=0,hp=100,kills=0,yaw=0,pitch=-.08,vy=0,grounded=true,aim=false,locked=false,hadLock=false,started=false,dead=false,reloading=false,lastShot=0,elapsed=0,fireHeld=false,scopeUpgrade=false;
@@ -43,7 +63,7 @@ const pickupDefs=[{type:'mag',color:0xd6b34d,pos:[-8,0,4]},{type:'scope',color:0
 function addPickup(def){const g=new THREE.Group(),box=new THREE.Mesh(new THREE.BoxGeometry(.72,.38,.55),mat(def.color));box.position.y=.35;box.castShadow=false;g.add(box);const band=new THREE.Mesh(new THREE.BoxGeometry(.12,.4,.58),mat(0x263129));band.position.y=.35;g.add(band);const ring=new THREE.Mesh(new THREE.TorusGeometry(.58,.035,6,16),new THREE.MeshBasicMaterial({color:def.color}));ring.rotation.x=Math.PI/2;ring.position.y=.06;g.add(ring);g.position.set(...def.pos);scene.add(g);const collider=new THREE.Mesh(new THREE.BoxGeometry(.92,1.05,.82),new THREE.MeshBasicMaterial({visible:false}));collider.position.set(def.pos[0],.52,def.pos[2]);scene.add(collider);const pickupBox=new THREE.Box3().setFromCenterAndSize(collider.position.clone(),new THREE.Vector3(.92,1.05,.82));pickupBounds.push({collider,box:pickupBox});pickups.push({def,group:g,collider,active:true});}
 pickupDefs.forEach(addPickup);
 const enemyMats=[0x665448,0x4c5d50,0x625c4b,0x4c5257,0x66504a];
-function addEnemy(x,z,i){const g=new THREE.Group(),uniform=mat(enemyMats[i%5]);const torso=new THREE.Mesh(new THREE.CapsuleGeometry(.38,.8,4,8),uniform);torso.position.y=1.03;g.add(torso);const helmet=new THREE.Mesh(new THREE.SphereGeometry(.25,10,8),mat(0x353d34));helmet.position.y=1.72;g.add(helmet);const vest=new THREE.Mesh(new THREE.BoxGeometry(.62,.55,.3),mat(0x303a32));vest.position.set(0,1.12,.02);g.add(vest);const hitbox=new THREE.Mesh(new THREE.BoxGeometry(.95,2.05,.8),new THREE.MeshBasicMaterial({visible:false}));hitbox.position.y=1.05;hitbox.userData.enemy=g;g.add(hitbox);g.position.set(x,0,z);scene.add(g);const e={group:g,hitbox,hp:100,alive:true,cooldown:1+Math.random()*1.4,phase:Math.random()*6,spawn:new THREE.Vector3(x,0,z)};g.userData.enemy=e;hitbox.userData.enemy=e;enemies.push(e);}
+function addEnemy(x,z,i){const g=new THREE.Group();soldierVisual(g,enemyMats[i%5],i%2?0x303b35:0x3b3930,0x9c765e);const hitbox=new THREE.Mesh(new THREE.BoxGeometry(.95,2.05,.8),new THREE.MeshBasicMaterial({visible:false}));hitbox.position.y=1.05;hitbox.userData.enemy=g;g.add(hitbox);g.position.set(x,0,z);scene.add(g);const e={group:g,hitbox,hp:100,alive:true,cooldown:1+Math.random()*1.4,phase:Math.random()*6,spawn:new THREE.Vector3(x,0,z)};g.userData.enemy=e;hitbox.userData.enemy=e;enemies.push(e);}
 [[-19,-22],[19,-23],[-25,18],[25,17],[0,-36]].forEach((p,i)=>addEnemy(p[0],p[1],i));
 function hud(){const w=weapons[wi];document.querySelector('#hp').textContent=Math.ceil(hp);document.querySelector('#kills').textContent=kills;document.querySelector('#left').textContent=enemies.filter(e=>e.alive).length;document.querySelector('#weapon').textContent=w.name;document.querySelector('#ammo').textContent=w.ammo;document.querySelector('#reserve').textContent='/ '+w.reserve+(reloading?' · 裝填中':'');document.querySelector('#hint').textContent=w.hint;document.querySelector('#damage').style.opacity=hp<45?String((45-hp)/60):'0';}
 let toastTimer;function toast(s){const el=document.querySelector('#toast');el.textContent=s;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),1100);}
