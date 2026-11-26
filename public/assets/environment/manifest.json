@@ -1,6 +1,6 @@
 {
-  "version": 2,
-  "licensePolicy": "All external models listed here are Poly Haven CC0 assets, verified on their individual source pages. API use follows Poly Haven's public API terms.",
+  "version": 3,
+  "licensePolicy": "All external models and PBR materials listed here are Poly Haven CC0 assets, verified on their individual source pages. API use follows Poly Haven's public API terms.",
   "source": "https://polyhaven.com/license",
   "assets": [
     {
@@ -89,7 +89,79 @@
           "scale": 0.13
         }
       ]
+    },
+    {
+      "id": "fir-sapling",
+      "source": "https://polyhaven.com/a/fir_sapling",
+      "author": "Rico Cilliers; Rob Tuytel",
+      "license": "CC0-1.0",
+      "url": "/assets/environment/models/fir_sapling/fir_sapling.gltf",
+      "castShadow": true,
+      "receiveShadow": true,
+      "placements": [
+        {
+          "position": [
+            -46,
+            0,
+            -30
+          ],
+          "rotation": [
+            0,
+            0.2,
+            0
+          ],
+          "scale": 0.72
+        },
+        {
+          "position": [
+            -43,
+            0,
+            -25
+          ],
+          "rotation": [
+            0,
+            2.2,
+            0
+          ],
+          "scale": 0.6
+        },
+        {
+          "position": [
+            -30,
+            0,
+            -42
+          ],
+          "rotation": [
+            0,
+            1.1,
+            0
+          ],
+          "scale": 0.66
+        },
+        {
+          "position": [
+            26,
+            0,
+            -45
+          ],
+          "rotation": [
+            0,
+            -0.6,
+            0
+          ],
+          "scale": 0.68
+        }
+      ]
+    },
+    {
+      "id": "forest-ground-01",
+      "type": "ground-material",
+      "source": "https://polyhaven.com/a/forrest_ground_01",
+      "author": "Rob Tuytel",
+      "license": "CC0-1.0",
+      "url": "/assets/environment/models/forrest_ground_01/forrest_ground_01.gltf",
+      "repeat": 24
     }
   ],
-  "notes": "Models are downloaded at build time from Poly Haven's official public API in glTF 2K. GLTF dependencies are saved beside each scene file. Existing procedural terrain and structures remain as fallback. The fort is scaled as a compact showcase outpost; validate placement/collision separately."
+  "notes": "2K glTF downloads are fetched from the official Poly Haven API at build time. Repeated model placements share loaded geometry/materials. Ground PBR maps are applied to the existing terrain mesh; the original procedural map remains a fallback. Asset collisions are not automatically generated."
 }
