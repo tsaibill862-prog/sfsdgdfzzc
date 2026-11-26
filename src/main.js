@@ -25,9 +25,13 @@ async function loadEnvironmentAssetManifest(){
     const placements=asset.placements||[{position:asset.position||[0,0,0],rotation:asset.rotation||[0,0,0],scale:asset.scale||1}];
     for(const placement of placements){
      const model=gltf.scene.clone(true);
-     model.position.set(...(placement.position||[0,0,0]));
      model.rotation.set(...(placement.rotation||[0,0,0]));
      model.scale.setScalar(placement.scale||1);
+     model.updateMatrixWorld(true);
+     const bounds=new THREE.Box3().setFromObject(model);
+     if(Number.isFinite(bounds.min.y))model.position.y=(placement.position?.[1]||0)-bounds.min.y;
+     model.position.x=placement.position?.[0]||0;
+     model.position.z=placement.position?.[2]||0;
      model.traverse(node=>{if(node.isMesh){node.castShadow=asset.castShadow!==false;node.receiveShadow=asset.receiveShadow!==false;if(node.material){const materials=Array.isArray(node.material)?node.material:[node.material];for(const material of materials){if(material.map)material.map.colorSpace=THREE.SRGBColorSpace;if(material.normalMap)material.normalScale.setScalar(asset.normalScale||1);if(material.transparent||material.alphaTest>0){material.alphaTest=Math.max(material.alphaTest||0,.42);material.depthWrite=true;}}}}});
      scene.add(model);
     }
