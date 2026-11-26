@@ -15,34 +15,28 @@ environmentStatus.id='environmentAssetStatus';
 environmentStatus.style.cssText='position:fixed;left:12px;top:12px;z-index:30;padding:7px 10px;background:rgba(8,16,13,.78);border:1px solid rgba(180,205,170,.35);border-radius:5px;color:#e8f0df;font:12px/1.45 system-ui;pointer-events:none;max-width:310px';
 environmentStatus.textContent='環境模型：載入中…';
 root.appendChild(environmentStatus);
-function getWallCollisionCells(mesh,cellSize=.65){
+function getWallCollisionSegments(mesh){
  const geometry=mesh.geometry,position=geometry.attributes.position,index=geometry.index;
  const triangleCount=Math.floor((index?index.count:position.count)/3);
- const cells=new Map(),a=new THREE.Vector3(),b=new THREE.Vector3(),c=new THREE.Vector3(),ab=new THREE.Vector3(),ac=new THREE.Vector3(),normal=new THREE.Vector3();
+ const segments=[],a=new THREE.Vector3(),b=new THREE.Vector3(),c=new THREE.Vector3(),ab=new THREE.Vector3(),ac=new THREE.Vector3(),normal=new THREE.Vector3();
  const getVertex=(n,target)=>{const vi=index?index.getX(n):n;return target.fromBufferAttribute(position,vi).applyMatrix4(mesh.matrixWorld);};
  for(let tri=0;tri<triangleCount;tri++){
   getVertex(tri*3,a);getVertex(tri*3+1,b);getVertex(tri*3+2,c);
   ab.subVectors(b,a);ac.subVectors(c,a);normal.crossVectors(ab,ac).normalize();
-  // Only near-vertical faces become blockers. Floors, roofs and terrain are not walls.
   if(Math.abs(normal.y)>.48)continue;
-  const minX=Math.min(a.x,b.x,c.x),maxX=Math.max(a.x,b.x,c.x);
   const minY=Math.min(a.y,b.y,c.y),maxY=Math.max(a.y,b.y,c.y);
-  const minZ=Math.min(a.z,b.z,c.z),maxZ=Math.max(a.z,b.z,c.z);
   if(maxY-minY<.12)continue;
-  const ix0=Math.floor(minX/cellSize),ix1=Math.floor(maxX/cellSize);
-  const iy0=Math.floor(minY/cellSize),iy1=Math.floor(maxY/cellSize);
-  const iz0=Math.floor(minZ/cellSize),iz1=Math.floor(maxZ/cellSize);
-  for(let ix=ix0;ix<=ix1;ix++)for(let iy=iy0;iy<=iy1;iy++)for(let iz=iz0;iz<=iz1;iz++){
-   const key=ix+','+iy+','+iz;
-   let box=cells.get(key);
-   const loX=Math.max(minX,ix*cellSize),hiX=Math.min(maxX,(ix+1)*cellSize);
-   const loY=Math.max(minY,iy*cellSize),hiY=Math.min(maxY,(iy+1)*cellSize);
-   const loZ=Math.max(minZ,iz*cellSize),hiZ=Math.min(maxZ,(iz+1)*cellSize);
-   if(!box){box=new THREE.Box3(new THREE.Vector3(loX,loY,loZ),new THREE.Vector3(hiX,hiY,hiZ));cells.set(key,box);}
-   else{box.expandByPoint(new THREE.Vector3(loX,loY,loZ));box.expandByPoint(new THREE.Vector3(hiX,hiY,hiZ));}
-  }
+  const pairs=[[a,b],[b,c],[c,a]];
+  let best=null,bestLength=0;
+  for(const pair of pairs){const dx=pair[1].x-pair[0].x,dz=pair[1].z-pair[0].z,length=dx*dx+dz*dz;if(length>bestLength){bestLength=length;best=pair;}}
+  if(!best||bestLength<.0004)continue;
+  segments.push({x1:best[0].x,z1:best[0].z,x2:best[1].x,z2:best[1].z,minY,maxY});
  }
- return [...cells.values()];
+ return segments;
+}
+function addWallSegment(segment){
+ const cellSize=2,ix0=Math.floor(Math.min(segment.x1,segment.x2)/cellSize),ix1=Math.floor(Math.max(segment.x1,segment.x2)/cellSize),iz0=Math.floor(Math.min(segment.z1,segment.z2)/cellSize),iz1=Math.floor(Math.max(segment.z1,segment.z2)/cellSize);
+ for(let ix=ix0;ix<=ix1;ix++)for(let iz=iz0;iz<=iz1;iz++){const key=ix+','+iz;let bucket=wallSegmentBuckets.get(key);if(!bucket){bucket=[];wallSegmentBuckets.set(key,bucket);}bucket.push(segment);}
 }
 async function loadEnvironmentAssetManifest(){
  let treeExpected=0,treeLoaded=0,treeFailed=0,otherLoaded=0,otherFailed=0;
@@ -101,22 +95,14 @@ async function loadEnvironmentAssetManifest(){
       const radius=Math.max(supportHalfX,supportHalfZ);
       obstacleColliders.push({kind:'rock',x:modelCenter.x,z:modelCenter.z,radius,supportHalfX,supportHalfZ,supportHalfY,supportCenterY:modelCenter.y,minY:bounds.min.y,maxY:bounds.max.y,jumpable:true,mesh:model});
      }else{
-      // Build compact blockers from vertical wall faces only. This prevents a wall
-      // mesh joined to floors/other structures from producing one giant courtyard blocker.
-      let partCount=0;
+      // Register the actual projected triangle edges of vertical wall faces.
+      // No AABB cells: doorways and gaps between separate wall sections remain open.
+      let segmentCount=0;
       for(const part of modelMeshes){
        part.updateMatrixWorld(true);
-       const wallCells=getWallCollisionCells(part,.65);
-       for(const partBounds of wallCells){
-        if(!Number.isFinite(partBounds.min.x)||!Number.isFinite(partBounds.max.x))continue;
-        const partSize=partBounds.getSize(new THREE.Vector3());
-        if(partSize.y<.12)continue;
-        const partCenter=partBounds.getCenter(new THREE.Vector3());
-        obstacleColliders.push({kind:'box',x:partCenter.x,z:partCenter.z,halfX:Math.max(.045,partSize.x*.5),halfZ:Math.max(.045,partSize.z*.5),minY:partBounds.min.y,maxY:partBounds.max.y,jumpable:false});
-        partCount++;
-       }
+       for(const segment of getWallCollisionSegments(part)){addWallSegment(segment);segmentCount++;}
       }
-      console.info(`Environment wall collision cells: ${asset.id}; separate boxes=${partCount}`);
+      console.info(`Environment triangle wall collision segments: ${asset.id}; segments=${segmentCount}`);
      }
      scene.add(model);
      // Yield every two placed instances so the game loop and input remain responsive.
@@ -139,6 +125,7 @@ async function loadEnvironmentAssetManifest(){
 }
 const materialCache=new Map();const mat=c=>{if(!materialCache.has(c)){const concreteColors=[0x777d76,0x9a927e,0x777b70,0x77796d,0x626b65,0x696f69,0x8c806d,0x77796f];const asphaltColors=[0x555e59,0x454b49];const map=concreteColors.includes(c)?surfaceMaps.concrete:asphaltColors.includes(c)?surfaceMaps.asphalt:null;materialCache.set(c,new THREE.MeshStandardMaterial({color:c,roughness:map?.98:.86,map}));}return materialCache.get(c);};
 const worldSolids=[],solidBounds=[],pickupBounds=[],obstacleColliders=[],impactSurfaces=[];
+const wallSegmentBuckets=new Map();
 let cachedRaycastTargets=[],cachedSolidCount=-1,cachedSurfaceCount=-1;
 function getRaycastTargets(){if(cachedSolidCount!==worldSolids.length||cachedSurfaceCount!==impactSurfaces.length){cachedRaycastTargets=[...worldSolids,...impactSurfaces];cachedSolidCount=worldSolids.length;cachedSurfaceCount=impactSurfaces.length;}return cachedRaycastTargets;}
 
@@ -449,7 +436,7 @@ function reload(){if(inventoryOpen||paused||!ownedWeapons[wi])return;const w=wea
 function shoot(){const w=weapons[wi],now=performance.now();if(!started||dead||inventoryOpen||paused||!ownedWeapons[wi]||reloading||now-lastShot<w.rate)return;lastShot=now;weaponOutUntil=now+1450;recoil=Math.min(.11,recoil+(wi===1?.075:.032));playGunshot(wi);if(!w.ammo){if(fireHeld&&wi===0)toast('彈匣已空 · 按 R 裝填');return;}w.ammo--;const dir=new THREE.Vector3();camera.getWorldDirection(dir);for(let i=0;i<w.pellets;i++){const d=dir.clone(),stanceAccuracy=stance==='prone'?.48:stance==='crouch'?.76:1;d.x+=(Math.random()-.5)*w.spread*(scopeUpgrade ? .62 : 1)*stanceAccuracy;d.y+=(Math.random()-.5)*w.spread*(scopeUpgrade ? .62 : 1)*stanceAccuracy;ray.set(camera.position,d.normalize());ray.far=90;const wallHit=ray.intersectObjects(getRaycastTargets(),false)[0];const enemyHit=ray.intersectObjects(enemies.filter(e=>e.alive).map(e=>e.hitbox))[0];const tracerEnd=enemyHit&&(!wallHit||enemyHit.distance<wallHit.distance)?enemyHit.point:(wallHit?wallHit.point:camera.position.clone().addScaledVector(d,55));addTracer(camera.position,tracerEnd);if(enemyHit&&(!wallHit||enemyHit.distance<wallHit.distance)){const e=enemyHit.object.userData.enemy;spawnImpact(enemyHit.point,d.clone().negate(),'enemy');e.hp-=w.damage;const mark=document.querySelector('#hit');mark.classList.add('show');setTimeout(()=>mark.classList.remove('show'),100);if(e.hp<=0){e.alive=false;e.group.visible=false;kills++;toast('敵人已擊倒');}}else if(wallHit){const normal=wallHit.face?wallHit.face.normal.clone().transformDirection(wallHit.object.matrixWorld):d.clone().negate();spawnImpact(wallHit.point,normal,'solid');}}hud();}
 function enemyShoot(e){e.weaponOutUntil=performance.now()+850;const start=e.group.position.clone().add(new THREE.Vector3(0,1.2,0)),target=player.position.clone().add(new THREE.Vector3(0,1,0));const mesh=new THREE.Mesh(new THREE.SphereGeometry(.085,6,6),new THREE.MeshBasicMaterial({color:0xffbd68}));mesh.position.copy(start);scene.add(mesh);bullets.push({mesh,dir:target.sub(start).normalize(),life:2.6});}
 function hurt(n){if(dead)return;hp=Math.max(0,hp-n);damageFlash=Math.min(1,damageFlash+.72);hitReact=.28;playImpactThud();hud();if(hp===0){dead=true;playerRig.body.rotation.x=-.85;playerRig.body.position.y=-.28;playerRig.legs.forEach(l=>l.pivot.rotation.x=1.15);document.querySelector('#desc').textContent='本次擊倒 '+kills+' 名敵人。重新部署，再試一次。';document.querySelector('#start').textContent='重新開始';document.querySelector('#overlay').classList.add('visible');document.exitPointerLock?.();}}
-function canActorStep(x,z,currentY,radius=.38,height=1.8,canJump=true){if(x< -49||x>49||z< -44||z>44)return false;const nextFloor=terrainHeightAt(x,z);if(nextFloor-currentY>.62)return false;const bottom=currentY,top=bottom+height;for(const o of obstacleColliders){if(top<=o.minY+.02||bottom>=o.maxY-.02)continue;if(o.kind==='rock'||o.kind==='cylinder'){const dx=x-o.x,dz=z-o.z,reach=radius+o.radius+.12;if(dx*dx+dz*dz>reach*reach)continue;const footTop=rockSupportAt(o,x,z,bottom);if(footTop!==null&&bottom>=footTop-.24)continue;}else if(o.jumpable&&bottom>=o.maxY-.04)continue;if(o.kind==='hill'){const nx=(x-o.x)/o.rx,nz=(z-o.z)/o.rz;if(nx*nx+nz*nz<1)return false;}else if(o.kind==='circle'||o.kind==='rock'||o.kind==='cylinder'){const rr=radius+o.radius;if((x-o.x)**2+(z-o.z)**2<rr*rr)return false;}else{const cx=Math.max(o.x-o.halfX,Math.min(x,o.x+o.halfX)),cz=Math.max(o.z-o.halfZ,Math.min(z,o.z+o.halfZ));if((x-cx)**2+(z-cz)**2<radius*radius)return false;}}return true;}
+function canActorStep(x,z,currentY,radius=.38,height=1.8,canJump=true){if(x< -49||x>49||z< -44||z>44)return false;const nextFloor=terrainHeightAt(x,z);if(nextFloor-currentY>.62)return false;const bottom=currentY,top=bottom+height;const cellSize=2,reach=radius+.055,ix0=Math.floor((x-reach)/cellSize),ix1=Math.floor((x+reach)/cellSize),iz0=Math.floor((z-reach)/cellSize),iz1=Math.floor((z+reach)/cellSize),seen=new Set();for(let ix=ix0;ix<=ix1;ix++)for(let iz=iz0;iz<=iz1;iz++){const bucket=wallSegmentBuckets.get(ix+','+iz);if(!bucket)continue;for(const seg of bucket){if(seen.has(seg)||top<=seg.minY+.02||bottom>=seg.maxY-.02)continue;seen.add(seg);const vx=seg.x2-seg.x1,vz=seg.z2-seg.z1,len2=vx*vx+vz*vz,t=len2?THREE.MathUtils.clamp(((x-seg.x1)*vx+(z-seg.z1)*vz)/len2,0,1):0,dx=x-(seg.x1+vx*t),dz=z-(seg.z1+vz*t);if(dx*dx+dz*dz<reach*reach)return false;}}for(const o of obstacleColliders){if(top<=o.minY+.02||bottom>=o.maxY-.02)continue;if(o.kind==='rock'||o.kind==='cylinder'){const dx=x-o.x,dz=z-o.z,reach=radius+o.radius+.12;if(dx*dx+dz*dz>reach*reach)continue;const footTop=rockSupportAt(o,x,z,bottom);if(footTop!==null&&bottom>=footTop-.24)continue;}else if(o.jumpable&&bottom>=o.maxY-.04)continue;if(o.kind==='hill'){const nx=(x-o.x)/o.rx,nz=(z-o.z)/o.rz;if(nx*nx+nz*nz<1)return false;}else if(o.kind==='circle'||o.kind==='rock'||o.kind==='cylinder'){const rr=radius+o.radius;if((x-o.x)**2+(z-o.z)**2<rr*rr)return false;}else{const cx=Math.max(o.x-o.halfX,Math.min(x,o.x+o.halfX)),cz=Math.max(o.z-o.halfZ,Math.min(z,o.z+o.halfZ));if((x-cx)**2+(z-cz)**2<radius*radius)return false;}}return true;}
 function ai(dt){for(const e of enemies){if(!e.alive)continue;const p=e.group.position,dx=player.position.x-p.x,dz=player.position.z-p.z,d=Math.hypot(dx,dz);e.phase+=dt;e.cooldown-=dt;e.group.rotation.y=Math.atan2(dx,dz);let mx=0,mz=0;if(d>9){const speed=d>28?2.4:1.1;mx=dx/Math.max(d,.001)*speed*dt;mz=dz/Math.max(d,.001)*speed*dt;}else{mx=Math.sin(e.phase*1.7)*.5*dt;mz=Math.cos(e.phase*1.4)*.5*dt;}if(canActorStep(p.x+mx,p.z,p.y,.34,1.9,false))p.x+=mx;if(canActorStep(p.x,p.z+mz,p.y,.34,1.9,false))p.z+=mz;p.y=terrainHeightAt(p.x,p.z);if(d<32&&e.cooldown<=0){enemyShoot(e);e.cooldown=1.5+Math.random()*.8;}setSoldierPose(e.rig,performance.now()<e.weaponOutUntil,dt);}}
 function updateBullets(dt){for(let i=bullets.length-1;i>=0;i--){const b=bullets[i],from=b.mesh.position.clone(),travel=b.dir.clone().multiplyScalar(dt*19),to=from.clone().add(travel);ray.set(from,b.dir);ray.far=travel.length();const wall=ray.intersectObjects([...worldSolids,...impactSurfaces],false)[0];if(wall){spawnImpact(wall.point,wall.face?wall.face.normal.clone().transformDirection(wall.object.matrixWorld):b.dir.clone().negate(),'solid');b.life=0;}else{b.mesh.position.copy(to);b.life-=dt;if(b.mesh.position.distanceTo(player.position.clone().add(new THREE.Vector3(0,1,0)))<.8){spawnImpact(b.mesh.position,b.dir.clone().negate(),'enemy');hurt(7);b.life=0;}}if(b.life<=0){scene.remove(b.mesh);bullets.splice(i,1);}}}
 function collectPickups(){let nearest=null,nearestD=2.8;for(const p of pickups){if(!p.active)continue;const d=player.position.distanceTo(p.group.position);if(d<nearestD){nearest=p;nearestD=d;}}const prompt=document.querySelector('#pickupPrompt');if(prompt)prompt.textContent=nearest?(nearest.def.type==='weapon'?'按 F 拾取 '+defs[nearest.def.weaponIndex][0]:'按 F 拾取 '+({mag:'擴容彈匣',scope:'二倍鏡',med:'醫療包'}[nearest.def.type])):'';if(!nearest){pickupRequested=false;return;}if(!pickupRequested)return;pickupRequested=false;const p=nearest;p.active=false;p.group.visible=false;const pi=pickupBounds.findIndex(v=>v.collider===p.collider);if(pi>=0)pickupBounds.splice(pi,1);if(p.def.type==='weapon'){const i=p.def.weaponIndex,w=weapons[i];if(ownedWeapons[i]){w.reserve+=Math.round(w.mag*.75);toast('已拾取 '+w.name+' 彈藥');}else{ownedWeapons[i]=true;w.ammo=w.mag;w.reserve=Math.round(defs[i][2]*.4);wi=i;toast('已裝備 '+w.name+'！');}setSoldierPose(playerRig,false,1,ownedWeapons[wi]);}else if(p.def.type==='mag'){weapons.forEach((w,i)=>{if(ownedWeapons[i]){w.mag=Math.round(defs[i][1]*1.5);w.ammo=Math.min(w.mag,w.ammo+Math.round(w.mag*.5));w.reserve+=Math.round(w.mag*.5);}});toast('已拾取：擴容彈匣');}else if(p.def.type==='scope'){scopeUpgrade=true;toast('已拾取：二倍鏡（瞄準時 2 倍）');}else{medKits++;toast('已拾取：醫療包 ×1（按 H 使用）');}hud();renderInventory();}
