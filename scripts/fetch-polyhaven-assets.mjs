@@ -4,7 +4,7 @@ import path from 'node:path';
 const root = process.cwd();
 const publicRoot = path.join(root, 'public');
 const userAgent = 'ProjectBattleRoyale/1.0 (CC0 game asset build)';
-const models = ['namaqualand_boulder_02', 'modular_fort_01', 'fir_sapling'];
+const models = ['namaqualand_boulder_02', 'modular_fort_01', 'fir_tree_01', 'tree_small_02', 'pine_tree_01'];
 const materials = ['forrest_ground_01'];
 
 async function getJson(url) {
@@ -25,7 +25,8 @@ async function downloadGltf(id, kind) {
   const gltf = (kind === 'model' ? files?.gltf : files?.gltf)?.['2k']?.gltf;
   if (!gltf?.url) throw new Error(`No 2K glTF download available for ${id}`);
   const dir = path.join(publicRoot, 'assets', 'environment', 'models', id);
-  const mainName = path.basename(new URL(gltf.url).pathname);
+  const sourceName = path.basename(new URL(gltf.url).pathname);
+  const mainName = `${id}.gltf`;
   await saveRemoteFile(gltf, path.join(dir, mainName));
   for (const [relativeName, dependency] of Object.entries(gltf.include || {})) {
     const safeName = path.normalize(relativeName).replace(/^\.\.(?:[\\/]|$)/, '');
