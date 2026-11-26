@@ -15,24 +15,34 @@ environmentStatus.id='environmentAssetStatus';
 environmentStatus.style.cssText='position:fixed;left:12px;top:12px;z-index:30;padding:7px 10px;background:rgba(8,16,13,.78);border:1px solid rgba(180,205,170,.35);border-radius:5px;color:#e8f0df;font:12px/1.45 system-ui;pointer-events:none;max-width:310px';
 environmentStatus.textContent='環境模型：載入中…';
 root.appendChild(environmentStatus);
-function getConnectedMeshBounds(mesh){
+function getWallCollisionCells(mesh,cellSize=.65){
  const geometry=mesh.geometry,position=geometry.attributes.position,index=geometry.index;
  const triangleCount=Math.floor((index?index.count:position.count)/3);
- if(!triangleCount)return [];
- const parent=new Int32Array(triangleCount);for(let i=0;i<triangleCount;i++)parent[i]=i;
- const find=x=>{while(parent[x]!==x){parent[x]=parent[parent[x]];x=parent[x];}return x;};
- const join=(a,b)=>{a=find(a);b=find(b);if(a!==b)parent[b]=a;};
- const vertexOwners=new Map();
- const vertexAt=(n)=>{const vi=index?index.getX(n):n;const x=position.getX(vi),y=position.getY(vi),z=position.getZ(vi);return {vi,key:`${Math.round(x*10000)},${Math.round(y*10000)},${Math.round(z*10000)}`};};
+ const cells=new Map(),a=new THREE.Vector3(),b=new THREE.Vector3(),c=new THREE.Vector3(),ab=new THREE.Vector3(),ac=new THREE.Vector3(),normal=new THREE.Vector3();
+ const getVertex=(n,target)=>{const vi=index?index.getX(n):n;return target.fromBufferAttribute(position,vi).applyMatrix4(mesh.matrixWorld);};
  for(let tri=0;tri<triangleCount;tri++){
-  for(let k=0;k<3;k++){const v=vertexAt(tri*3+k),owner=vertexOwners.get(v.key);if(owner===undefined)vertexOwners.set(v.key,tri);else join(tri,owner);}
+  getVertex(tri*3,a);getVertex(tri*3+1,b);getVertex(tri*3+2,c);
+  ab.subVectors(b,a);ac.subVectors(c,a);normal.crossVectors(ab,ac).normalize();
+  // Only near-vertical faces become blockers. Floors, roofs and terrain are not walls.
+  if(Math.abs(normal.y)>.48)continue;
+  const minX=Math.min(a.x,b.x,c.x),maxX=Math.max(a.x,b.x,c.x);
+  const minY=Math.min(a.y,b.y,c.y),maxY=Math.max(a.y,b.y,c.y);
+  const minZ=Math.min(a.z,b.z,c.z),maxZ=Math.max(a.z,b.z,c.z);
+  if(maxY-minY<.12)continue;
+  const ix0=Math.floor(minX/cellSize),ix1=Math.floor(maxX/cellSize);
+  const iy0=Math.floor(minY/cellSize),iy1=Math.floor(maxY/cellSize);
+  const iz0=Math.floor(minZ/cellSize),iz1=Math.floor(maxZ/cellSize);
+  for(let ix=ix0;ix<=ix1;ix++)for(let iy=iy0;iy<=iy1;iy++)for(let iz=iz0;iz<=iz1;iz++){
+   const key=ix+','+iy+','+iz;
+   let box=cells.get(key);
+   const loX=Math.max(minX,ix*cellSize),hiX=Math.min(maxX,(ix+1)*cellSize);
+   const loY=Math.max(minY,iy*cellSize),hiY=Math.min(maxY,(iy+1)*cellSize);
+   const loZ=Math.max(minZ,iz*cellSize),hiZ=Math.min(maxZ,(iz+1)*cellSize);
+   if(!box){box=new THREE.Box3(new THREE.Vector3(loX,loY,loZ),new THREE.Vector3(hiX,hiY,hiZ));cells.set(key,box);}
+   else{box.expandByPoint(new THREE.Vector3(loX,loY,loZ));box.expandByPoint(new THREE.Vector3(hiX,hiY,hiZ));}
+  }
  }
- const islands=new Map(),v=new THREE.Vector3();
- for(let tri=0;tri<triangleCount;tri++){
-  const root=find(tri);let bounds=islands.get(root);if(!bounds){bounds=new THREE.Box3().makeEmpty();islands.set(root,bounds);}
-  for(let k=0;k<3;k++){const {vi}=vertexAt(tri*3+k);v.fromBufferAttribute(position,vi).applyMatrix4(mesh.matrixWorld);bounds.expandByPoint(v);}
- }
- return [...islands.values()];
+ return [...cells.values()];
 }
 async function loadEnvironmentAssetManifest(){
  let treeExpected=0,treeLoaded=0,treeFailed=0,otherLoaded=0,otherFailed=0;
@@ -91,24 +101,22 @@ async function loadEnvironmentAssetManifest(){
       const radius=Math.max(supportHalfX,supportHalfZ);
       obstacleColliders.push({kind:'rock',x:modelCenter.x,z:modelCenter.z,radius,supportHalfX,supportHalfZ,supportHalfY,supportCenterY:modelCenter.y,minY:bounds.min.y,maxY:bounds.max.y,jumpable:true,mesh:model});
      }else{
-      // Give every imported mesh its own collider. A fort's full model bounds would
-      // incorrectly fill courtyards and gaps between separate wall sections.
+      // Build compact blockers from vertical wall faces only. This prevents a wall
+      // mesh joined to floors/other structures from producing one giant courtyard blocker.
       let partCount=0;
       for(const part of modelMeshes){
        part.updateMatrixWorld(true);
-       // A GLTF mesh can contain many disconnected wall sections. Split its triangles
-       // into connected islands, then give each island its own world-space collider.
-       const islandBounds=getConnectedMeshBounds(part);
-       for(const partBounds of islandBounds){
+       const wallCells=getWallCollisionCells(part,.65);
+       for(const partBounds of wallCells){
         if(!Number.isFinite(partBounds.min.x)||!Number.isFinite(partBounds.max.x))continue;
         const partSize=partBounds.getSize(new THREE.Vector3());
-        if(partSize.x<.08||partSize.z<.08||partSize.y<.08)continue;
+        if(partSize.y<.12)continue;
         const partCenter=partBounds.getCenter(new THREE.Vector3());
-        obstacleColliders.push({kind:'box',x:partCenter.x,z:partCenter.z,halfX:Math.max(.06,partSize.x*.5),halfZ:Math.max(.06,partSize.z*.5),minY:partBounds.min.y,maxY:partBounds.max.y,jumpable:false});
+        obstacleColliders.push({kind:'box',x:partCenter.x,z:partCenter.z,halfX:Math.max(.045,partSize.x*.5),halfZ:Math.max(.045,partSize.z*.5),minY:partBounds.min.y,maxY:partBounds.max.y,jumpable:false});
         partCount++;
        }
       }
-      console.info(`Environment collision islands: ${asset.id}; separate boxes=${partCount}`);
+      console.info(`Environment wall collision cells: ${asset.id}; separate boxes=${partCount}`);
      }
      scene.add(model);
      // Yield every two placed instances so the game loop and input remain responsive.
