@@ -185,7 +185,7 @@ terrainRoad([[-48,31],[-37,19],[-28,4],[-20,-9],[-7,-22],[8,-28],[23,-22],[36,-1
 terrainRoad([[-39,-29],[-26,-27],[-13,-31],[0,-38],[16,-40],[31,-34],[45,-27]],3.1);
 terrainRoad([[-43,37],[-29,32],[-16,28],[-3,22],[10,18],[24,12],[39,5]],2.5);
 function roadsideMarker(x,z,label){
- const c=document.createElement('canvas');c.width=512;c.height=128;const ctx=c.getContext('2d);
+ const c=document.createElement('canvas');c.width=512;c.height=128;const ctx=c.getContext('2d');
  ctx.fillStyle='#202923';ctx.fillRect(0,0,512,128);ctx.strokeStyle='#b9b18e';ctx.lineWidth=7;ctx.strokeRect(5,5,502,118);
  ctx.fillStyle='#e1ddc9';ctx.font='bold 42px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(label,256,66);
  const tex=new THREE.CanvasTexture(c);tex.colorSpace=THREE.SRGBColorSpace;
