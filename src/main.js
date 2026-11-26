@@ -38,7 +38,7 @@ const ground=new THREE.Mesh(terrainGeo,new THREE.MeshStandardMaterial({color:0xf
 // Low grass tufts are instanced to keep draw calls low while breaking up the flat ground.
 const grassGeo=new THREE.ConeGeometry(.075,.42,3),grassMat=new THREE.MeshStandardMaterial({color:0x66794b,roughness:1,side:THREE.DoubleSide});
 const grass=new THREE.InstancedMesh(grassGeo,grassMat,520),grassDummy=new THREE.Object3D();let grassCount=0;
-for(let i=0;i<520;i++){const x=(terrainRand()-.5)*92,z=(terrainRand()-.5)*82;if(Math.abs(x)<5||Math.abs(z+30)<4||Math.abs(x+30)<4)continue;if(Math.hypot(x-32,z-28)<10)continue;grassDummy.position.set(x,terrainHeightAt(x,z)+.18*sc,z);grassDummy.rotation.y=terrainRand()*Math.PI;const sc=.55+terrainRand()*.8;grassDummy.scale.set(sc,sc,sc);grassDummy.updateMatrix();grass.setMatrixAt(grassCount++,grassDummy.matrix);}
+for(let i=0;i<520;i++){const x=(terrainRand()-.5)*92,z=(terrainRand()-.5)*82;if(Math.abs(x)<5||Math.abs(z+30)<4||Math.abs(x+30)<4)continue;if(Math.hypot(x-32,z-28)<10)continue;const sc=.55+terrainRand()*.8;grassDummy.position.set(x,terrainHeightAt(x,z)+.18*sc,z);grassDummy.rotation.y=terrainRand()*Math.PI;grassDummy.scale.set(sc,sc,sc);grassDummy.updateMatrix();grass.setMatrixAt(grassCount++,grassDummy.matrix);}
 grass.count=grassCount;grass.instanceMatrix.needsUpdate=true;grass.castShadow=false;grass.receiveShadow=true;scene.add(grass);
 // The old flat grid floated above the uneven terrain, so it is omitted.
 // Military training-ground surfacing, road paint and concrete firing lanes
