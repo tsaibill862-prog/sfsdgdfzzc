@@ -2,14 +2,25 @@ import * as THREE from 'three';
 import './style.css';
 const root=document.querySelector('#game');
 root.innerHTML="<div id='hud'><header><b>PROJECT BATTLE ROYALE</b><small>ALPHA 0.4 · FIXED SHOULDER CAMERA</small></header><div class='stats'><span>生命 <b id='hp'>100</b></span><span>擊殺 <b id='kills'>0</b></span><span>敵人 <b id='left'>5</b></span><span id='timer'>00:00</span></div><div class='cross'>+</div><div class='help'>WASD 移動 · Shift 衝刺 · Space 跳躍<br>左鍵射擊 · 右鍵瞄準 · R 裝填 · 1–4 換槍</div><div class='weapon'><b id='weapon'>突擊步槍</b><strong id='ammo'>30</strong><small id='reserve'>/ 150</small><p id='hint'>全自動 · 中距離</p></div><div id='hit'>✕</div><div id='damage'></div><div id='toast'></div></div><div id='overlay' class='visible'><section><small>TRAINING ARENA · BUILD 0.4</small><h1>PROJECT<br><em>BATTLE ROYALE</em></h1><p id='desc'>AI 敵人已進駐訓練場。利用掩體、切換武器並消滅所有敵人。</p><div class='tags'>第三人稱射擊　·　4 種武器　·　AI 敵人　·　生命系統</div><button id='start'>開始戰鬥</button><small class='note'>建議使用電腦與滑鼠遊玩</small></section></div>";
-const scene=new THREE.Scene();scene.background=new THREE.Color(0x899b8b);scene.fog=new THREE.Fog(0x899b8b,38,115);
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x9aa99a);scene.fog=new THREE.Fog(0x9aa99a,52,145);
 const camera=new THREE.PerspectiveCamera(67,innerWidth/innerHeight,.1,180);
 const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.08;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;root.prepend(renderer.domElement);
-scene.add(new THREE.HemisphereLight(0xdce9ff,0x4d5848,2.1));const sun=new THREE.DirectionalLight(0xffe3bd,2.6);sun.position.set(-24,38,18);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);sun.shadow.camera.left=-72;sun.shadow.camera.right=72;sun.shadow.camera.top=72;sun.shadow.camera.bottom=-72;sun.shadow.camera.near=1;sun.shadow.camera.far=125;sun.shadow.bias=-0.00025;scene.add(sun);
+scene.add(new THREE.HemisphereLight(0xe2eaff,0x394537,1.65));const sun=new THREE.DirectionalLight(0xffe0b5,3.0);sun.position.set(-32,46,24);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);sun.shadow.camera.left=-72;sun.shadow.camera.right=72;sun.shadow.camera.top=72;sun.shadow.camera.bottom=-72;sun.shadow.camera.near=1;sun.shadow.camera.far=125;sun.shadow.bias=-0.00025;scene.add(sun);
 const materialCache=new Map();const mat=c=>{if(!materialCache.has(c))materialCache.set(c,new THREE.MeshStandardMaterial({color:c,roughness:.86}));return materialCache.get(c);};
 const worldSolids=[],solidBounds=[],pickupBounds=[],obstacleColliders=[],impactSurfaces=[];
-const ground=new THREE.Mesh(new THREE.PlaneGeometry(180,180),mat(0x65745b));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);impactSurfaces.push(ground);
-const grid=new THREE.GridHelper(120,30,0x78866e,0x6d7b64);grid.position.y=.015;grid.material.transparent=true;grid.material.opacity=.22;scene.add(grid);
+// Procedural dirt-and-grass albedo: subtle mottling gives the terrain a natural surface.
+const terrainSize=256,terrainPixels=new Uint8Array(terrainSize*terrainSize*4);
+let terrainSeed=7391;const terrainRand=()=>{terrainSeed=(terrainSeed*1664525+1013904223)>>>0;return terrainSeed/4294967296;};
+for(let y=0;y<terrainSize;y++)for(let x=0;x<terrainSize;x++){const i=(y*terrainSize+x)*4,n=(terrainRand()-.5)*34,grain=(Math.sin(x*.13)+Math.cos(y*.11))*5;terrainPixels[i]=Math.max(0,105+n+grain);terrainPixels[i+1]=Math.max(0,119+n+grain);terrainPixels[i+2]=Math.max(0,83+n*.72);terrainPixels[i+3]=255;}
+const terrainTexture=new THREE.DataTexture(terrainPixels,terrainSize,terrainSize,THREE.RGBAFormat);terrainTexture.wrapS=terrainTexture.wrapT=THREE.RepeatWrapping;terrainTexture.repeat.set(22,22);terrainTexture.colorSpace=THREE.SRGBColorSpace;terrainTexture.magFilter=THREE.LinearFilter;terrainTexture.minFilter=THREE.LinearMipmapLinearFilter;terrainTexture.generateMipmaps=true;terrainTexture.needsUpdate=true;
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(180,180),new THREE.MeshStandardMaterial({color:0xffffff,map:terrainTexture,roughness:1}));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);impactSurfaces.push(ground);
+
+// Low grass tufts are instanced to keep draw calls low while breaking up the flat ground.
+const grassGeo=new THREE.ConeGeometry(.075,.42,3),grassMat=new THREE.MeshStandardMaterial({color:0x66794b,roughness:1,side:THREE.DoubleSide});
+const grass=new THREE.InstancedMesh(grassGeo,grassMat,520),grassDummy=new THREE.Object3D();let grassCount=0;
+for(let i=0;i<520;i++){const x=(terrainRand()-.5)*92,z=(terrainRand()-.5)*82;if(Math.abs(x)<5||Math.abs(z+30)<4||Math.abs(x+30)<4)continue;if(Math.hypot(x-32,z-28)<10)continue;grassDummy.position.set(x,.18,z);grassDummy.rotation.y=terrainRand()*Math.PI;const sc=.55+terrainRand()*.8;grassDummy.scale.set(sc,sc,sc);grassDummy.updateMatrix();grass.setMatrixAt(grassCount++,grassDummy.matrix);}
+grass.count=grassCount;grass.instanceMatrix.needsUpdate=true;grass.castShadow=false;grass.receiveShadow=true;scene.add(grass);
+const grid=new THREE.GridHelper(120,30,0x78866e,0x6d7b64);grid.position.y=.015;grid.material.transparent=true;grid.material.opacity=.10;scene.add(grid);
 // Military training-ground surfacing, road paint and concrete firing lanes
 function floorPatch(x,z,w,d,color,y=.022){const m=new THREE.Mesh(new THREE.PlaneGeometry(w,d),new THREE.MeshStandardMaterial({color,roughness:.96}));m.rotation.x=-Math.PI/2;m.position.set(x,y,z);m.receiveShadow=true;scene.add(m);impactSurfaces.push(m);return m;}
 floorPatch(0,-30,9,88,0x454b49);floorPatch(-30,0,8,86,0x55594f);floorPatch(0,0,34,28,0x77796c,.026);
@@ -38,10 +49,29 @@ function tree(x,z,scale=1){const g=new THREE.Group();const trunk=new THREE.Mesh(
 // Low crates and fallen logs can be cleared with a jump; taller cover remains solid
 for(let i=0;i<6;i++){const x=-18+i*7,z=(i%2===0? -7:7);block(x,.34,z,1.35,.68,1.05,i%2?0x786448:0x8b7655);}
 for(let i=0;i<4;i++){const x=-29+i*5,z=25;const log=new THREE.Mesh(new THREE.CylinderGeometry(.34,.34,2.8,9),mat(0x6b5037));log.rotation.z=Math.PI/2;log.position.set(x,.34,z);log.castShadow=true;log.receiveShadow=true;scene.add(log);worldSolids.push(log);log.updateMatrixWorld(true);solidBounds.push(new THREE.Box3().setFromObject(log));obstacleColliders.push({kind:'box',x,z,halfX:1.4,halfZ:.34,minY:0,maxY:.68,jumpable:true});}
+// A compact concrete outpost with an open entrance and firing windows.
+floorPatch(38,-24,12,10,0x77796d,.035);
+block(32.5,1.55,-24, .55,3.1,9,0x777b70);block(43.5,1.55,-24,.55,3.1,9,0x777b70);
+block(38,1.55,-28.25,11,.55,.5,0x777b70);
+block(34.1,1.55,-19.5,3.2,3.1,.55,0x777b70);block(41.9,1.55,-19.5,3.2,3.1,.55,0x777b70);
+block(38,3.2,-24,11.5,.45,9.5,0x696f69);
+for(const x of [34.5,37.8,41.1]){block(x,.55,-18.55,1.1,1.1,.42,0x9a8d70);}
+for(let i=0;i<5;i++){const x=25+i*2.2;block(x,.48,-11,1.8,.96,.72,0x8b806b);}
+for(let i=0;i<4;i++){const x=25+i*2.4;const barrel=new THREE.Mesh(new THREE.CylinderGeometry(.38,.38,.95,12),mat(i%2?0x59645b:0x6e5540));barrel.position.set(x,.48,-14.5);barrel.castShadow=true;barrel.receiveShadow=true;scene.add(barrel);worldSolids.push(barrel);barrel.updateMatrixWorld(true);solidBounds.push(new THREE.Box3().setFromObject(barrel));obstacleColliders.push({kind:'circle',x,z:-14.5,radius:.4,minY:0,maxY:.95,jumpable:false});}
+
 
 function makeRifle(color=0x202723){const g=new THREE.Group();const add=(geo,c,p)=>{const m=new THREE.Mesh(geo,mat(c));m.position.set(...p);m.castShadow=true;g.add(m);};add(new THREE.BoxGeometry(.14,.14,.92),color,[0,0,0]);add(new THREE.BoxGeometry(.11,.22,.17),0x171d1a,[0,-.16,.12]);add(new THREE.BoxGeometry(.1,.18,.13),0x252c27,[0,-.14,-.2]);add(new THREE.CylinderGeometry(.035,.035,.42,8),0x111715,[0,0,-.65]);add(new THREE.BoxGeometry(.22,.055,.12),0x171d1a,[0,.1,-.05]);return g;}
 function soldierVisual(g,uniformColor=0x35483b,vestColor=0x26352d,skinColor=0xb58d70){const add=(geo,color,pos,rot)=>{const m=new THREE.Mesh(geo,mat(color));m.position.set(...pos);if(rot)m.rotation.set(...rot);m.castShadow=true;m.receiveShadow=true;g.add(m);return m;};
+ // Layered torso, neck and tactical armor.
  add(new THREE.CapsuleGeometry(.34,.68,5,9),uniformColor,[0,1.05,0]);
+ add(new THREE.CylinderGeometry(.13,.15,.18,9),skinColor,[0,1.53,0]);
+ // Legs, knee pads and boots make the full soldier silhouette read clearly at distance.
+ for(const side of [-1,1]){
+   add(new THREE.CapsuleGeometry(.145,.56,4,8),uniformColor,[side*.19,.43,.015]);
+   add(new THREE.BoxGeometry(.23,.16,.31),0x303b32,[side*.19,.39,-.12]);
+   add(new THREE.BoxGeometry(.25,.16,.42),0x242a25,[side*.19,.105,-.055]);
+   add(new THREE.BoxGeometry(.16,.22,.12),0x4a5546,[side*.19,.69,-.12]);
+ }
  add(new THREE.BoxGeometry(.66,.62,.34),vestColor,[0,1.13,-.025]);
  add(new THREE.BoxGeometry(.7,.12,.38),0x17231e,[0,.78,0]);
  add(new THREE.SphereGeometry(.215,12,10),skinColor,[0,1.77,-.015]);
@@ -52,6 +82,10 @@ function soldierVisual(g,uniformColor=0x35483b,vestColor=0x26352d,skinColor=0xb5
  add(new THREE.BoxGeometry(.09,.48,.045),0x9b875e,[-.19,1.18,-.205]);
  add(new THREE.BoxGeometry(.09,.48,.045),0x9b875e,[.19,1.18,-.205]);
  for(let j=0;j<3;j++)add(new THREE.BoxGeometry(.14,.16,.1),0x4b5b45,[(j-1)*.17,.94,-.23]);
+ // Shoulder plates, radio, utility belt and small field equipment.
+ for(const side of [-1,1]){add(new THREE.SphereGeometry(.19,9,7),0x465345,[side*.39,1.42,-.02]);add(new THREE.BoxGeometry(.16,.22,.13),0x4c5945,[side*.37,1.02,.2]);}
+ add(new THREE.BoxGeometry(.16,.3,.12),0x202a25,[.23,1.42,.22]);
+ add(new THREE.BoxGeometry(.12,.08,.08),0xb49a63,[0,.78,-.22]);
  // Arms pivot at shoulders: relaxed at the sides, then swing forward to hold the rifle
  const arms=[];
  for(const side of [-1,1]){const pivot=new THREE.Group();pivot.position.set(side*.39,1.43,-.015);g.add(pivot);const upper=new THREE.Mesh(new THREE.CapsuleGeometry(.125,.48,4,8),uniformColor);upper.position.y=-.29;upper.castShadow=true;pivot.add(upper);const glove=new THREE.Mesh(new THREE.SphereGeometry(.13,9,7),mat(0x303b33));glove.position.set(0,-.59,-.015);glove.castShadow=true;pivot.add(glove);arms.push({pivot,side});}
