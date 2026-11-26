@@ -78,7 +78,8 @@ function terrainHeightAt(x,z){
 const terrainGeo=new THREE.PlaneGeometry(180,180,150,150),terrainPos=terrainGeo.attributes.position;
 for(let i=0;i<terrainPos.count;i++){const x=terrainPos.getX(i),z=-terrainPos.getY(i);terrainPos.setZ(i,terrainHeightAt(x,z));}
 terrainGeo.computeVertexNormals();
-const ground=new THREE.Mesh(terrainGeo,new THREE.MeshStandardMaterial({color:0xffffff,map:terrainTexture,roughness:1}));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);impactSurfaces.push(ground);\nloadEnvironmentAssetManifest();
+const ground=new THREE.Mesh(terrainGeo,new THREE.MeshStandardMaterial({color:0xffffff,map:terrainTexture,roughness:1}));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);impactSurfaces.push(ground);
+loadEnvironmentAssetManifest();
 
 // Low grass tufts are instanced to keep draw calls low while breaking up the flat ground.
 const grassGeo=new THREE.ConeGeometry(.075,.42,3),grassMat=new THREE.MeshStandardMaterial({color:0x66794b,roughness:1,side:THREE.DoubleSide});
