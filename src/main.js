@@ -18,6 +18,7 @@ root.appendChild(environmentStatus);
 async function loadEnvironmentAssetManifest(){
  let treeExpected=0,treeLoaded=0,treeFailed=0,otherLoaded=0,otherFailed=0;
  const refreshStatus=()=>{environmentStatus.textContent=`環境模型：樹木 ${treeLoaded}/${treeExpected} 棵（${treeFailed} 失敗） · 其他模型 ${otherLoaded} 成功（${otherFailed} 失敗）`;};
+ const yieldFrame=()=>new Promise(resolve=>requestAnimationFrame(()=>resolve()));
  try{
   const response=await fetch('/assets/environment/manifest.json',{cache:'no-cache'});
   if(!response.ok)throw new Error(`manifest HTTP ${response.status}`);
@@ -25,8 +26,9 @@ async function loadEnvironmentAssetManifest(){
   const assets=manifest.assets||[];
   treeExpected=assets.filter(a=>/tree/i.test(a.id||'')).reduce((n,a)=>n+(a.placements?.length||1),0);
   refreshStatus();
-  await Promise.all(assets.map(async asset=>{
-   if(!asset.url)return;
+  // Load one source model at a time. This avoids simultaneous texture decoding spikes.
+  for(const asset of assets){
+   if(!asset.url)continue;
    try{
     const gltf=await environmentGLTFLoader.loadAsync(asset.url);
     if(asset.type==='ground-material'){
@@ -39,11 +41,12 @@ async function loadEnvironmentAssetManifest(){
       if(texture){texture.wrapS=texture.wrapT=THREE.RepeatWrapping;texture.repeat.set(asset.repeat||12,asset.repeat||12);texture.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());}
      }
      material.color.set(0xffffff);material.roughness=Math.max(material.roughness||0,.82);
-     ground.material=material;ground.material.needsUpdate=true;otherLoaded++;refreshStatus();return;
+     ground.material=material;ground.material.needsUpdate=true;otherLoaded++;refreshStatus();await yieldFrame();continue;
     }
     let meshCount=0;
     const placements=asset.placements||[{position:asset.position||[0,0,0],rotation:asset.rotation||[0,0,0],scale:asset.scale||1}];
-    for(const placement of placements){
+    for(let index=0;index<placements.length;index++){
+     const placement=placements[index];
      const model=gltf.scene.clone(true);
      model.rotation.set(...(placement.rotation||[0,0,0]));
      model.scale.setScalar(placement.scale||1);
@@ -53,17 +56,21 @@ async function loadEnvironmentAssetManifest(){
      const terrainY=typeof terrainHeightAt==='function'?terrainHeightAt(x,z):(placement.position?.[1]||0);
      if(Number.isFinite(bounds.min.y))model.position.y=terrainY-bounds.min.y;
      model.position.x=x;model.position.z=z;
-     model.traverse(node=>{if(node.isMesh){meshCount++;node.castShadow=asset.castShadow!==false;node.receiveShadow=asset.receiveShadow!==false;if(node.material){const materials=Array.isArray(node.material)?node.material:[node.material];for(const material of materials){if(material.map)material.map.colorSpace=THREE.SRGBColorSpace;if(material.normalMap)material.normalScale.setScalar(asset.normalScale||1);if(material.transparent||material.alphaTest>0){material.alphaTest=Math.max(material.alphaTest||0,.42);material.depthWrite=true;}}}}});
+     const isTree=/tree/i.test(asset.id||'');
+     model.traverse(node=>{if(node.isMesh){meshCount++;node.castShadow=!isTree&&asset.castShadow!==false;node.receiveShadow=asset.receiveShadow!==false;if(node.material){const materials=Array.isArray(node.material)?node.material:[node.material];for(const material of materials){if(material.map)material.map.colorSpace=THREE.SRGBColorSpace;if(material.normalMap)material.normalScale.setScalar(asset.normalScale||1);if(material.transparent||material.alphaTest>0){material.alphaTest=Math.max(material.alphaTest||0,.42);material.depthWrite=true;}}}}});
      scene.add(model);
+     // Yield every two placed instances so the game loop and input remain responsive.
+     if(index%2===1)await yieldFrame();
     }
     if(/tree/i.test(asset.id||''))treeLoaded+=placements.length;else otherLoaded++;
     refreshStatus();
     console.info(`Environment asset loaded: ${asset.id}; meshes=${meshCount}; instances=${placements.length}`);
+    await yieldFrame();
    }catch(error){
     if(/tree/i.test(asset.id||''))treeFailed+=(asset.placements?.length||1);else otherFailed++;
     refreshStatus();console.error(`Environment asset failed: ${asset.id||asset.url}`,asset.url,error);
    }
-  }));
+  }
   refreshStatus();
  }catch(error){
   environmentStatus.textContent='環境模型載入失敗：'+error.message;
@@ -385,7 +392,7 @@ function ai(dt){for(const e of enemies){if(!e.alive)continue;const p=e.group.pos
 function updateBullets(dt){for(let i=bullets.length-1;i>=0;i--){const b=bullets[i],from=b.mesh.position.clone(),travel=b.dir.clone().multiplyScalar(dt*19),to=from.clone().add(travel);ray.set(from,b.dir);ray.far=travel.length();const wall=ray.intersectObjects([...worldSolids,...impactSurfaces],false)[0];if(wall){spawnImpact(wall.point,wall.face?wall.face.normal.clone().transformDirection(wall.object.matrixWorld):b.dir.clone().negate(),'solid');b.life=0;}else{b.mesh.position.copy(to);b.life-=dt;if(b.mesh.position.distanceTo(player.position.clone().add(new THREE.Vector3(0,1,0)))<.8){spawnImpact(b.mesh.position,b.dir.clone().negate(),'enemy');hurt(7);b.life=0;}}if(b.life<=0){scene.remove(b.mesh);bullets.splice(i,1);}}}
 function collectPickups(){let nearest=null,nearestD=2.8;for(const p of pickups){if(!p.active)continue;const d=player.position.distanceTo(p.group.position);if(d<nearestD){nearest=p;nearestD=d;}}const prompt=document.querySelector('#pickupPrompt');if(prompt)prompt.textContent=nearest?(nearest.def.type==='weapon'?'按 F 拾取 '+defs[nearest.def.weaponIndex][0]:'按 F 拾取 '+({mag:'擴容彈匣',scope:'二倍鏡',med:'醫療包'}[nearest.def.type])):'';if(!nearest){pickupRequested=false;return;}if(!pickupRequested)return;pickupRequested=false;const p=nearest;p.active=false;p.group.visible=false;const pi=pickupBounds.findIndex(v=>v.collider===p.collider);if(pi>=0)pickupBounds.splice(pi,1);if(p.def.type==='weapon'){const i=p.def.weaponIndex,w=weapons[i];if(ownedWeapons[i]){w.reserve+=Math.round(w.mag*.75);toast('已拾取 '+w.name+' 彈藥');}else{ownedWeapons[i]=true;w.ammo=w.mag;w.reserve=Math.round(defs[i][2]*.4);wi=i;toast('已裝備 '+w.name+'！');}setSoldierPose(playerRig,false,1,ownedWeapons[wi]);}else if(p.def.type==='mag'){weapons.forEach((w,i)=>{if(ownedWeapons[i]){w.mag=Math.round(defs[i][1]*1.5);w.ammo=Math.min(w.mag,w.ammo+Math.round(w.mag*.5));w.reserve+=Math.round(w.mag*.5);}});toast('已拾取：擴容彈匣');}else if(p.def.type==='scope'){scopeUpgrade=true;toast('已拾取：二倍鏡（瞄準時 2 倍）');}else{medKits++;toast('已拾取：醫療包 ×1（按 H 使用）');}hud();renderInventory();}
 function resetPickups(){medKits=0;pickupBounds.length=0;pickups.forEach(p=>{p.active=true;p.group.visible=true;pickupBounds.push({collider:p.collider,box:new THREE.Box3().setFromCenterAndSize(p.collider.position.clone(),new THREE.Vector3(.92,1.05,.82))});});scopeUpgrade=false;ownedWeapons.fill(false);weapons.forEach(w=>{w.ammo=0;w.reserve=0;});wi=0;setSoldierPose(playerRig,false,1,false);}
-let startingGame=false;async function start(){if(startingGame)return;startingGame=true;initAudio();const lobbyStartButton=document.querySelector('#lobbyStart');const modeDescription=document.querySelector('#modeDescription');if(!started&&!environmentAssetsLoaded){if(lobbyStartButton){lobbyStartButton.disabled=true;lobbyStartButton.textContent='載入戰場…';}if(modeDescription)modeDescription.textContent='正在載入樹木、岩石、建築與地表材質，完成後立即進入戰場…';}await environmentAssetsReady;if(lobbyStartButton){lobbyStartButton.disabled=false;lobbyStartButton.textContent='開始遊戲 ➜';}if(!started){lobbyOperator.visible=false;player.visible=true;document.querySelector('#lobby').classList.remove('visible');}if(dead){hp=100;kills=0;elapsed=0;resetPickups();enemies.forEach(e=>{e.alive=true;e.hp=100;e.group.visible=true;e.group.position.copy(e.spawn);});}started=true;dead=false;paused=false;document.querySelector('#overlay').classList.remove('visible');document.querySelector('#desc').textContent='先搜尋建築與倉庫取得武器，再利用掩體擊倒 AI 敵人。';document.querySelector('#start').textContent='開始戰鬥';hud();renderer.domElement.requestPointerLock?.();startingGame=false;}
+let startingGame=false;async function start(){if(startingGame)return;startingGame=true;initAudio();const lobbyStartButton=document.querySelector('#lobbyStart');const modeDescription=document.querySelector('#modeDescription');if(!started&&!environmentAssetsLoaded){if(lobbyStartButton){lobbyStartButton.disabled=true;lobbyStartButton.textContent='載入戰場…';}if(modeDescription)modeDescription.textContent='戰場已開始；環境素材正在背景分批載入，不會阻擋操作。';}if(lobbyStartButton){lobbyStartButton.disabled=false;lobbyStartButton.textContent='開始遊戲 ➜';}if(!started){lobbyOperator.visible=false;player.visible=true;document.querySelector('#lobby').classList.remove('visible');}if(dead){hp=100;kills=0;elapsed=0;resetPickups();enemies.forEach(e=>{e.alive=true;e.hp=100;e.group.visible=true;e.group.position.copy(e.spawn);});}started=true;dead=false;paused=false;document.querySelector('#overlay').classList.remove('visible');document.querySelector('#desc').textContent='先搜尋建築與倉庫取得武器，再利用掩體擊倒 AI 敵人。';document.querySelector('#start').textContent='開始戰鬥';hud();renderer.domElement.requestPointerLock?.();startingGame=false;}
 
 function renderInventory(){
  const eq=document.querySelector('#equipmentSlots'),grid=document.querySelector('#backpackGrid');
