@@ -32,3 +32,11 @@ The game loads optimized GLB environment props from `manifest.json` through Thre
 ## First showcase area
 
 Start with a compact ridge/outpost zone rather than replacing the entire battlefield at once. Priority order: ground/rock materials, scanned rock clusters, trees and shrubs, then the outpost building and small military props. Keep the existing Alpha 4.0 lighting setup unchanged while art assets are integrated.
+
+
+## Integrated CC0 assets
+
+- [Namaqualand Boulder 02](https://polyhaven.com/a/namaqualand_boulder_02) — Greg Zaal and Rico Cilliers, CC0-1.0. Downloaded as 2K glTF at build time; one loaded model is reused for several placements.
+- [Modular Fort 01](https://polyhaven.com/a/modular_fort_01) — Rico Cilliers, CC0-1.0. Downloaded as 2K glTF at build time and scaled as a compact outpost showcase.
+
+The build script uses the official Poly Haven API with a project-specific User-Agent and downloads each glTF dependency beside the model. The UI credits Poly Haven as requested by its API terms.
