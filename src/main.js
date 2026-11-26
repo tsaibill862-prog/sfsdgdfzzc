@@ -27,7 +27,7 @@ const surfaceMaps={asphalt:makeSurfaceMap('asphalt'),concrete:makeSurfaceMap('co
 // Procedural dirt-and-grass albedo: subtle mottling gives the terrain a natural surface.
 const terrainSize=256,terrainPixels=new Uint8Array(terrainSize*terrainSize*4);
 let terrainSeed=7391;const terrainRand=()=>{terrainSeed=(terrainSeed*1664525+1013904223)>>>0;return terrainSeed/4294967296;};
-for(let y=0;y<terrainSize;y++)for(let x=0;x<terrainSize;x++){const i=(y*terrainSize+x)*4,n=(terrainRand()-.5)*34,grain=(Math.sin(x*.13)+Math.cos(y*.11))*5;terrainPixels[i]=Math.max(0,105+n+grain);terrainPixels[i+1]=Math.max(0,119+n+grain);terrainPixels[i+2]=Math.max(0,83+n*.72);terrainPixels[i+3]=255;}
+for(let y=0;y<terrainSize;y++)for(let x=0;x<terrainSize;x++){const i=(y*terrainSize+x)*4,n=(terrainRand()-.5)*22,macro=Math.sin(x*.027+y*.018)*8+Math.cos(y*.035-x*.021)*7,micro=(Math.sin(x*.31)*Math.cos(y*.27))*4,grain=(terrainRand()-.5)*13,v=macro+micro+n+grain;const damp=Math.max(0,Math.sin(x*.014+y*.023)-.48)*10;terrainPixels[i]=Math.max(0,102+v-damp);terrainPixels[i+1]=Math.max(0,116+v-damp*.5);terrainPixels[i+2]=Math.max(0,76+v*.68);terrainPixels[i+3]=255;}
 const terrainTexture=new THREE.DataTexture(terrainPixels,terrainSize,terrainSize,THREE.RGBAFormat);terrainTexture.wrapS=terrainTexture.wrapT=THREE.RepeatWrapping;terrainTexture.repeat.set(22,22);terrainTexture.colorSpace=THREE.SRGBColorSpace;terrainTexture.magFilter=THREE.LinearFilter;terrainTexture.minFilter=THREE.LinearMipmapLinearFilter;terrainTexture.generateMipmaps=true;terrainTexture.needsUpdate=true;
 // Walkable height field: rolling ridges, elevated plateaus, shallow gullies and a lake basin.
 const smoothStep=(a,b,v)=>{const t=THREE.MathUtils.clamp((v-a)/(b-a),0,1);return t*t*(3-2*t);};
@@ -167,6 +167,49 @@ function addCombatBuilding(x,z,style='house'){
 addCombatBuilding(-14,-34,'house');
 addCombatBuilding(15,17,'house');
 addCombatBuilding(-37,5,'warehouse');
+
+// Scenic road network: terrain-conforming asphalt ribbons, gravel shoulders and worn lane markings.
+function terrainRoad(points,width=4,material=surfaceMaps.asphalt){
+ const verts=[],uv=[],indices=[],steps=points.length*12;
+ for(let i=0;i<=steps;i++){
+  const t=i/steps*(points.length-1),seg=Math.min(points.length-2,Math.floor(t)),u=t-seg;
+  const ax=points[seg][0],az=points[seg][1],bx=points[seg+1][0],bz=points[seg+1][1];
+  const x=THREE.MathUtils.lerp(ax,bx,u),z=THREE.MathUtils.lerp(az,bz,u),dx=bx-ax,dz=bz-az,len=Math.hypot(dx,dz)||1,nx=-dz/len,nz=dx/len;
+  for(const side of [-1,1]){const px=x+nx*width*.5*side,pz=z+nz*width*.5*side;verts.push(px,terrainHeightAt(px,pz)+.045,pz);uv.push(i/steps*5,side*.5+.5);}
+  if(i<steps){const a=i*2;indices.push(a,a+1,a+2,a+1,a+3,a+2);}
+ }
+ const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));geo.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));geo.setIndex(indices);geo.computeVertexNormals();
+ const road=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color:0xffffff,map:material,roughness:.97,side:THREE.DoubleSide}));road.receiveShadow=true;scene.add(road);impactSurfaces.push(road);
+}
+terrainRoad([[-48,31],[-37,19],[-28,4],[-20,-9],[-7,-22],[8,-28],[23,-22],[36,-10],[47,5]],4.6);
+terrainRoad([[-39,-29],[-26,-27],[-13,-31],[0,-38],[16,-40],[31,-34],[45,-27]],3.1);
+terrainRoad([[-43,37],[-29,32],[-16,28],[-3,22],[10,18],[24,12],[39,5]],2.5);
+function roadsideMarker(x,z,label){
+ const c=document.createElement('canvas');c.width=512;c.height=128;const ctx=c.getContext('2d);
+ ctx.fillStyle='#202923';ctx.fillRect(0,0,512,128);ctx.strokeStyle='#b9b18e';ctx.lineWidth=7;ctx.strokeRect(5,5,502,118);
+ ctx.fillStyle='#e1ddc9';ctx.font='bold 42px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(label,256,66);
+ const tex=new THREE.CanvasTexture(c);tex.colorSpace=THREE.SRGBColorSpace;
+ const board=new THREE.Mesh(new THREE.PlaneGeometry(4.8,1.2),new THREE.MeshBasicMaterial({map:tex,side:THREE.DoubleSide}));
+ board.position.set(x,terrainHeightAt(x,z)+2.65,z);board.rotation.y=-.25;scene.add(board);
+ for(const dx of [-1.8,1.8]){const post=new THREE.Mesh(new THREE.BoxGeometry(.12,2.4,.12),mat(0x4a5148));post.position.set(x+dx,terrainHeightAt(x,z)+1.2,z);post.castShadow=true;scene.add(post);}
+}
+roadsideMarker(-27,-12,'NORTH RIDGE');roadsideMarker(22,-31,'FIELD DEPOT');roadsideMarker(-24,30,'WEST OUTPOST');
+// A timber-and-steel observation tower creates a strong skyline landmark and a new sightline.
+function observationTower(x,z){
+ const base=terrainHeightAt(x,z),steel=mat(0x414b47),wood=mat(0x66543d);
+ for(const dx of [-1.65,1.65])for(const dz of [-1.5,1.5]){
+  const leg=new THREE.Mesh(new THREE.BoxGeometry(.22,6.2,.22),steel);leg.position.set(x+dx,base+3.1,z+dz);leg.rotation.z=dx*.055;leg.castShadow=true;leg.receiveShadow=true;scene.add(leg);
+ }
+ const deck=new THREE.Mesh(new THREE.BoxGeometry(4.1,.28,3.8),wood);deck.position.set(x,base+5.8,z);deck.castShadow=true;deck.receiveShadow=true;scene.add(deck);
+ for(const y of [6.35,7.45])for(const side of [-1,1]){const rail=new THREE.Mesh(new THREE.BoxGeometry(4.05,.12,.12),steel);rail.position.set(x,base+y,z+side*1.82);scene.add(rail);}
+ for(let i=0;i<9;i++){const rung=new THREE.Mesh(new THREE.BoxGeometry(.9,.09,.12),steel);rung.position.set(x+2.05,base+.55+i*.58,z);scene.add(rung);}
+ const roof=new THREE.Mesh(new THREE.BoxGeometry(4.6,.2,4.2),mat(0x46534b));roof.position.set(x,base+7.8,z);roof.castShadow=true;scene.add(roof);
+ const beacon=new THREE.Mesh(new THREE.SphereGeometry(.18,10,8),new THREE.MeshStandardMaterial({color:0xe1a35d,emissive:0x8d4c20,emissiveIntensity:.7}));beacon.position.set(x,base+8.05,z);scene.add(beacon);
+}
+observationTower(-5,-43);
+// Ruined perimeter walls and stacked supply pallets add layered cover between the named areas.
+for(let i=0;i<7;i++){const x=-46+i*2.1,z=22+(i%2)*.8;block(x,.48,z,1.9,.96,.38,i%2?0x77796f:0x8c806d);}
+for(let i=0;i<5;i++){const x=27+i*1.45,z=34-(i%2)*1.1;block(x,.42,z,1.25,.84,.95,0x786448);}
 
 // Jagged boulder fields on the ridge approaches; each rock has a matching movement collider.
 function boulderField(cx,cz,count,spread,seed=1){for(let i=0;i<count;i++){const a=i*2.399+seed,r=spread*(.22+.78*((i*7%13)/13)),x=cx+Math.cos(a)*r,z=cz+Math.sin(a)*r,base=terrainHeightAt(x,z),sx=.65+(i%3)*.28,sy=.7+(i%4)*.25,sz=.6+(i%2)*.35;const rock=new THREE.Mesh(new THREE.DodecahedronGeometry(1,1),mat(i%3===0?0x77786b:0x686d62));rock.scale.set(sx,sy,sz);rock.position.set(x,base+sy*.72,z);rock.rotation.set(.1*i,.37*i,.08*i);rock.castShadow=true;rock.receiveShadow=true;scene.add(rock);worldSolids.push(rock);rock.updateMatrixWorld(true);solidBounds.push(new THREE.Box3().setFromObject(rock));obstacleColliders.push({kind:'rock',x,z,radius:Math.max(sx,sz)*.72,minY:base,maxY:base+sy*1.72,jumpable:true,mesh:rock});impactSurfaces.push(rock);}}
