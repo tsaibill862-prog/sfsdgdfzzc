@@ -14,29 +14,55 @@
       "placements": [
         {
           "position": [
-            -18,
+            3,
             0,
-            -20
+            -4
           ],
           "rotation": [
             0,
-            0.4,
+            0.45,
             0
           ],
-          "scale": 0.9
+          "scale": 1.55
         },
         {
           "position": [
-            -24,
+            7,
+            0,
+            -8
+          ],
+          "rotation": [
+            0,
+            1.65,
+            0
+          ],
+          "scale": 1.05
+        },
+        {
+          "position": [
+            -10,
             0,
             -16
           ],
           "rotation": [
             0,
-            1.7,
+            -0.7,
             0
           ],
-          "scale": 0.62
+          "scale": 1.15
+        },
+        {
+          "position": [
+            -24,
+            0,
+            -26
+          ],
+          "rotation": [
+            0,
+            2.1,
+            0
+          ],
+          "scale": 1.3
         },
         {
           "position": [
@@ -49,7 +75,7 @@
             -0.7,
             0
           ],
-          "scale": 0.72
+          "scale": 1.1
         },
         {
           "position": [
@@ -62,7 +88,7 @@
             2.1,
             0
           ],
-          "scale": 0.55
+          "scale": 0.9
         }
       ]
     },
@@ -77,6 +103,19 @@
       "placements": [
         {
           "position": [
+            -13,
+            0,
+            -15
+          ],
+          "rotation": [
+            0,
+            0.35,
+            0
+          ],
+          "scale": 0.28
+        },
+        {
+          "position": [
             -35,
             0,
             -20
@@ -86,7 +125,7 @@
             0.35,
             0
           ],
-          "scale": 0.13
+          "scale": 0.18
         }
       ]
     },
@@ -101,16 +140,55 @@
       "placements": [
         {
           "position": [
-            -46,
+            -4,
             0,
-            -30
+            -5
           ],
           "rotation": [
             0,
             0.2,
             0
           ],
-          "scale": 0.72
+          "scale": 1.25
+        },
+        {
+          "position": [
+            -7,
+            0,
+            -9
+          ],
+          "rotation": [
+            0,
+            2.2,
+            0
+          ],
+          "scale": 1.05
+        },
+        {
+          "position": [
+            8,
+            0,
+            -13
+          ],
+          "rotation": [
+            0,
+            1.1,
+            0
+          ],
+          "scale": 1.18
+        },
+        {
+          "position": [
+            -18,
+            0,
+            -22
+          ],
+          "rotation": [
+            0,
+            -0.6,
+            0
+          ],
+          "scale": 1.3
         },
         {
           "position": [
@@ -123,7 +201,7 @@
             2.2,
             0
           ],
-          "scale": 0.6
+          "scale": 1.15
         },
         {
           "position": [
@@ -136,7 +214,7 @@
             1.1,
             0
           ],
-          "scale": 0.66
+          "scale": 1.2
         },
         {
           "position": [
@@ -149,7 +227,7 @@
             -0.6,
             0
           ],
-          "scale": 0.68
+          "scale": 1.2
         }
       ]
     },
@@ -163,5 +241,5 @@
       "repeat": 24
     }
   ],
-  "notes": "2K glTF downloads are fetched from the official Poly Haven API at build time. Repeated model placements share loaded geometry/materials. Ground PBR maps are applied to the existing terrain mesh; the original procedural map remains a fallback. Asset collisions are not automatically generated."
+  "notes": "Visible showcase placements are intentionally near the lobby camera and training-area approach; additional placements extend into the arena. Model origins are normalized to their ground contact point at runtime. PBR ground maps are applied to the existing terrain mesh; original procedural map remains fallback. Asset collisions are not automatically generated."
 }
