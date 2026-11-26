@@ -54,3 +54,9 @@
 .lobby-bottom{position:absolute;bottom:0;left:0;right:0;height:46px;display:flex;align-items:center;justify-content:space-between;padding:0 4.5%;border-top:1px solid #ffffff20;background:#080e0bc9;color:#889587;font-size:9px;letter-spacing:1.5px}
 @media(max-width:850px){.lobby-main{grid-template-columns:.7fr 1fr;gap:18px;padding-inline:20px}.lobby-copy h1{font-size:42px}.lobby-modes{padding:15px}.lobby-feature{margin:12px 0}.lobby-top,.lobby-nav,.lobby-bottom{padding-inline:20px}}
 @media(max-width:620px){#lobby{overflow:auto}.lobby-top{height:65px}.lobby-brand b{font-size:15px}.lobby-profile i{display:none}.lobby-nav{gap:17px;height:42px}.lobby-main{height:auto;min-height:0;display:flex;flex-direction:column;align-items:stretch;padding:24px 14px 64px}.lobby-copy{max-width:none}.lobby-copy h1{font-size:38px;margin:10px 0}.lobby-copy>p{margin-bottom:12px;font-size:12px}.lobby-feature{display:none}.lobby-modes{width:100%;justify-self:auto;margin-top:18px;padding:13px}.mode-heading h2{font-size:20px}.mode-card{padding:10px}.mode-footer{align-items:stretch;flex-direction:column}.mode-footer button{width:100%}.lobby-bottom{position:fixed;height:38px;font-size:8px}.lobby-bottom span:nth-child(2){display:none}}
+
+
+/* ALPHA 3.6 — cinematic battlefield presentation */
+#game:after{content:"";position:fixed;inset:0;z-index:2;pointer-events:none;background:radial-gradient(ellipse at 50% 45%,transparent 48%,rgba(8,13,10,.24) 100%),linear-gradient(180deg,rgba(12,18,14,.08),transparent 22%,transparent 78%,rgba(8,13,10,.18));}
+#hud{z-index:3}
+#lobby{background:linear-gradient(90deg,rgba(5,10,8,.97) 0%,rgba(8,14,11,.76) 40%,rgba(8,13,11,.34) 100%);}
