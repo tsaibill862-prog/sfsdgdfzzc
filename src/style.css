@@ -60,3 +60,24 @@
 #game:after{content:"";position:fixed;inset:0;z-index:2;pointer-events:none;background:radial-gradient(ellipse at 50% 45%,transparent 48%,rgba(8,13,10,.24) 100%),linear-gradient(180deg,rgba(12,18,14,.08),transparent 22%,transparent 78%,rgba(8,13,10,.18));}
 #hud{z-index:3}
 #lobby{background:linear-gradient(90deg,rgba(5,10,8,.97) 0%,rgba(8,14,11,.76) 40%,rgba(8,13,11,.34) 100%);}
+
+
+/* Sniper optic overlay: a circular glass view with a fine red center point. */
+#scopeOverlay{position:fixed;inset:0;z-index:4;display:none;place-items:center;pointer-events:none;background:radial-gradient(circle,transparent 0,min(34vmin,390px),rgba(0,0,0,.97) min(35vmin,402px),#020403 100%);}
+#scopeOverlay.active{display:grid}
+.scope-lens{position:relative;width:min(70vmin,800px);height:min(70vmin,800px);border:9px solid #111713;border-radius:50%;overflow:hidden;box-shadow:0 0 0 3px #596057,0 0 0 8px #080b09,0 0 38px 15px #000,inset 0 0 24px #000; background:radial-gradient(circle,transparent 45%,rgba(0,0,0,.12) 72%,rgba(0,0,0,.48) 100%);}
+.scope-glass{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 50% 48%,transparent 38%,rgba(15,20,17,.08) 72%,rgba(0,0,0,.42) 100%);}
+.scope-reticle{position:absolute;inset:0;display:grid;place-items:center;}
+.scope-line{position:absolute;display:block;background:rgba(20,25,21,.8);box-shadow:0 0 1px #d2d9ce;}
+.scope-line-v{width:1px;height:100%;}
+.scope-line-h{height:1px;width:100%;}
+.scope-dot{position:absolute;width:7px;height:7px;border-radius:50%;background:#ff2929;box-shadow:0 0 4px 1px #ff2424,0 0 9px #ff0000;}
+.scope-tick{position:absolute;background:rgba(20,25,21,.88);}
+.scope-tick-top,.scope-tick-bottom{width:13px;height:2px;left:calc(50% - 6px);}
+.scope-tick-top{top:27%;}.scope-tick-bottom{bottom:27%;}
+.scope-tick-left,.scope-tick-right{height:13px;width:2px;top:calc(50% - 6px);}
+.scope-tick-left{left:27%;}.scope-tick-right{right:27%;}
+.scope-mark{position:absolute;left:50%;transform:translateX(-50%);font-size:10px;color:#202a22;text-shadow:0 0 2px #c5d0c1;opacity:.85;}
+.scope-mark-top{top:9%;}.scope-mark-bottom{bottom:9%;}
+#game.scope-active .cross{display:none}
+@media(max-width:650px){.scope-lens{width:78vmin;height:78vmin;border-width:6px;}}
