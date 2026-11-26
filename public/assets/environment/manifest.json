@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "licensePolicy": "All external models and PBR materials listed here are Poly Haven CC0 assets, verified on their individual source pages. API use follows Poly Haven's public API terms.",
   "source": "https://polyhaven.com/license",
   "assets": [
@@ -130,13 +130,23 @@
       ]
     },
     {
-      "id": "fir-sapling",
-      "source": "https://polyhaven.com/a/fir_sapling",
+      "id": "forest-ground-01",
+      "type": "ground-material",
+      "source": "https://polyhaven.com/a/forrest_ground_01",
+      "author": "Rob Tuytel",
+      "license": "CC0-1.0",
+      "url": "/assets/environment/models/forrest_ground_01/forrest_ground_01.gltf",
+      "repeat": 24
+    },
+    {
+      "id": "fir-tree-01",
+      "source": "https://polyhaven.com/a/fir_tree_01",
       "author": "Rico Cilliers; Rob Tuytel",
       "license": "CC0-1.0",
-      "url": "/assets/environment/models/fir_sapling/fir_sapling.gltf",
+      "url": "/assets/environment/models/fir_tree_01/fir_tree_01.gltf",
       "castShadow": true,
       "receiveShadow": true,
+      "normalScale": 0.7,
       "placements": [
         {
           "position": [
@@ -146,100 +156,375 @@
           ],
           "rotation": [
             0,
-            0.2,
+            1.8707691154877308,
             0
           ],
-          "scale": 1.25
+          "scale": 1
         },
         {
           "position": [
-            -7,
+            -10,
             0,
-            -9
+            -12
           ],
           "rotation": [
             0,
-            2.2,
+            4.643341757402856,
+            0
+          ],
+          "scale": 1.12
+        },
+        {
+          "position": [
+            9,
+            0,
+            -18
+          ],
+          "rotation": [
+            0,
+            4.8100904745083755,
             0
           ],
           "scale": 1.05
         },
         {
           "position": [
-            8,
-            0,
-            -13
-          ],
-          "rotation": [
-            0,
-            1.1,
-            0
-          ],
-          "scale": 1.18
-        },
-        {
-          "position": [
-            -18,
-            0,
-            -22
-          ],
-          "rotation": [
-            0,
-            -0.6,
-            0
-          ],
-          "scale": 1.3
-        },
-        {
-          "position": [
-            -43,
+            -19,
             0,
             -25
           ],
           "rotation": [
             0,
-            2.2,
+            3.848363781712411,
             0
           ],
           "scale": 1.15
         },
         {
           "position": [
-            -30,
+            24,
+            0,
+            -32
+          ],
+          "rotation": [
+            0,
+            5.802011000406784,
+            0
+          ],
+          "scale": 1
+        },
+        {
+          "position": [
+            -40,
+            0,
+            -34
+          ],
+          "rotation": [
+            0,
+            2.211037366568298,
+            0
+          ],
+          "scale": 1.1
+        },
+        {
+          "position": [
+            35,
+            0,
+            -10
+          ],
+          "rotation": [
+            0,
+            1.1170179335531292,
+            0
+          ],
+          "scale": 0.95
+        },
+        {
+          "position": [
+            -31,
+            0,
+            12
+          ],
+          "rotation": [
+            0,
+            4.54152881814742,
+            0
+          ],
+          "scale": 1
+        },
+        {
+          "position": [
+            18,
+            0,
+            20
+          ],
+          "rotation": [
+            0,
+            4.803036467119327,
+            0
+          ],
+          "scale": 1.08
+        },
+        {
+          "position": [
+            -8,
+            0,
+            35
+          ],
+          "rotation": [
+            0,
+            6.227795087326863,
+            0
+          ],
+          "scale": 1.12
+        },
+        {
+          "position": [
+            43,
+            0,
+            28
+          ],
+          "rotation": [
+            0,
+            5.189162097993723,
+            0
+          ],
+          "scale": 1
+        },
+        {
+          "position": [
+            -47,
+            0,
+            2
+          ],
+          "rotation": [
+            0,
+            0.27607635919579226,
+            0
+          ],
+          "scale": 1.1
+        }
+      ]
+    },
+    {
+      "id": "tree-small-02",
+      "source": "https://polyhaven.com/a/tree_small_02",
+      "author": "Rico Cilliers",
+      "license": "CC0-1.0",
+      "url": "/assets/environment/models/tree_small_02/tree_small_02.gltf",
+      "castShadow": true,
+      "receiveShadow": true,
+      "normalScale": 0.7,
+      "placements": [
+        {
+          "position": [
+            4,
+            0,
+            -10
+          ],
+          "rotation": [
+            0,
+            6.149720908443763,
+            0
+          ],
+          "scale": 0.9
+        },
+        {
+          "position": [
+            -14,
+            0,
+            -7
+          ],
+          "rotation": [
+            0,
+            4.946452400174435,
+            0
+          ],
+          "scale": 0.95
+        },
+        {
+          "position": [
+            15,
+            0,
+            -25
+          ],
+          "rotation": [
+            0,
+            0.9013193090462304,
+            0
+          ],
+          "scale": 0.9
+        },
+        {
+          "position": [
+            -27,
+            0,
+            -15
+          ],
+          "rotation": [
+            0,
+            0.5424774779788964,
+            0
+          ],
+          "scale": 1
+        },
+        {
+          "position": [
+            31,
+            0,
+            -25
+          ],
+          "rotation": [
+            0,
+            2.508273570780004,
+            0
+          ],
+          "scale": 0.9
+        },
+        {
+          "position": [
+            -38,
+            0,
+            -5
+          ],
+          "rotation": [
+            0,
+            4.50905919588322,
+            0
+          ],
+          "scale": 0.95
+        },
+        {
+          "position": [
+            27,
+            0,
+            12
+          ],
+          "rotation": [
+            0,
+            2.260891921485825,
+            0
+          ],
+          "scale": 0.9
+        },
+        {
+          "position": [
+            -18,
+            0,
+            29
+          ],
+          "rotation": [
+            0,
+            2.4107336756563766,
+            0
+          ],
+          "scale": 0.95
+        },
+        {
+          "position": [
+            5,
+            0,
+            44
+          ],
+          "rotation": [
+            0,
+            4.145643038795612,
+            0
+          ],
+          "scale": 0.95
+        }
+      ]
+    },
+    {
+      "id": "pine-tree-01",
+      "source": "https://polyhaven.com/a/pine_tree_01",
+      "author": "Rico Cilliers; Rob Tuytel",
+      "license": "CC0-1.0",
+      "url": "/assets/environment/models/pine_tree_01/pine_tree_01.gltf",
+      "castShadow": true,
+      "receiveShadow": true,
+      "normalScale": 0.7,
+      "placements": [
+        {
+          "position": [
+            -2,
+            0,
+            -22
+          ],
+          "rotation": [
+            0,
+            4.175105980090931,
+            0
+          ],
+          "scale": 0.95
+        },
+        {
+          "position": [
+            20,
+            0,
+            -7
+          ],
+          "rotation": [
+            0,
+            5.100664309587276,
+            0
+          ],
+          "scale": 1
+        },
+        {
+          "position": [
+            -34,
+            0,
+            -40
+          ],
+          "rotation": [
+            0,
+            2.0779611245204666,
+            0
+          ],
+          "scale": 1
+        },
+        {
+          "position": [
+            40,
             0,
             -42
           ],
           "rotation": [
             0,
-            1.1,
+            2.529921741459599,
             0
           ],
-          "scale": 1.2
+          "scale": 0.95
         },
         {
           "position": [
-            26,
+            -44,
             0,
-            -45
+            25
           ],
           "rotation": [
             0,
-            -0.6,
+            1.8106694441005116,
             0
           ],
-          "scale": 1.2
+          "scale": 1
+        },
+        {
+          "position": [
+            32,
+            0,
+            42
+          ],
+          "rotation": [
+            0,
+            0.7950479098672095,
+            0
+          ],
+          "scale": 0.95
         }
       ]
-    },
-    {
-      "id": "forest-ground-01",
-      "type": "ground-material",
-      "source": "https://polyhaven.com/a/forrest_ground_01",
-      "author": "Rob Tuytel",
-      "license": "CC0-1.0",
-      "url": "/assets/environment/models/forrest_ground_01/forrest_ground_01.gltf",
-      "repeat": 24
     }
   ],
-  "notes": "Visible showcase placements are intentionally near the lobby camera and training-area approach; additional placements extend into the arena. Model origins are normalized to their ground contact point at runtime. PBR ground maps are applied to the existing terrain mesh; original procedural map remains fallback. Asset collisions are not automatically generated."
+  "notes": "Mature Poly Haven CC0 tree models replace the previous fir sapling and are distributed in mixed groves around the arena. Build downloads normalize each main glTF filename to the manifest URL while preserving relative dependency filenames. Model origins are aligned to terrain contact at runtime."
 }
