@@ -40,3 +40,9 @@ Start with a compact ridge/outpost zone rather than replacing the entire battlef
 - [Modular Fort 01](https://polyhaven.com/a/modular_fort_01) — Rico Cilliers, CC0-1.0. Downloaded as 2K glTF at build time and scaled as a compact outpost showcase.
 
 The build script uses the official Poly Haven API with a project-specific User-Agent and downloads each glTF dependency beside the model. The UI credits Poly Haven as requested by its API terms.
+
+
+## Additional integrated CC0 assets
+
+- [Fir Sapling](https://polyhaven.com/a/fir_sapling) — Rico Cilliers and Rob Tuytel, CC0-1.0; one 2K glTF scene reused at four outpost placements.
+- [Forest Ground 01](https://polyhaven.com/a/forrest_ground_01) — Rob Tuytel, CC0-1.0; 2K PBR glTF material maps applied to the terrain.
