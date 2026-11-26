@@ -402,7 +402,8 @@ function observationTower(x,z){
  // Register every tower mesh as a bullet-raycast target, not just the deck.
  for(const part of scene.children.slice(towerSceneStart))if(part.isMesh){part.userData.observationTowerPart=true;part.updateMatrixWorld(true);worldSolids.push(part);solidBounds.push(new THREE.Box3().setFromObject(part));}
 }
-observationTower(-5,-35);\nobservationTower(35,-10);
+observationTower(-5,-35);
+observationTower(35,-10);
 // Ruined perimeter walls and stacked supply pallets add layered cover between the named areas.
 for(let i=0;i<7;i++){const x=-46+i*2.1,z=22+(i%2)*.8;block(x,.48,z,1.9,.96,.38,i%2?0x77796f:0x8c806d);}
 for(let i=0;i<5;i++){const x=27+i*1.45,z=34-(i%2)*1.1;block(x,.42,z,1.25,.84,.95,0x786448);}
