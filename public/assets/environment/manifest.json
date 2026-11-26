@@ -1,6 +1,95 @@
 {
-  "version": 1,
-  "licensePolicy": "Only ship assets whose individual source page confirms CC0-1.0 or an explicitly approved commercial license.",
-  "assets": [],
-  "notes": "Add optimized .glb files under /assets/environment/models/ and list them here. Positions and rotations are in world units/radians; scale is uniform."
+  "version": 2,
+  "licensePolicy": "All external models listed here are Poly Haven CC0 assets, verified on their individual source pages. API use follows Poly Haven's public API terms.",
+  "source": "https://polyhaven.com/license",
+  "assets": [
+    {
+      "id": "namaqualand-boulder-02",
+      "source": "https://polyhaven.com/a/namaqualand_boulder_02",
+      "author": "Greg Zaal; Rico Cilliers",
+      "license": "CC0-1.0",
+      "url": "/assets/environment/models/namaqualand_boulder_02/namaqualand_boulder_02.gltf",
+      "castShadow": true,
+      "receiveShadow": true,
+      "placements": [
+        {
+          "position": [
+            -18,
+            0,
+            -20
+          ],
+          "rotation": [
+            0,
+            0.4,
+            0
+          ],
+          "scale": 0.9
+        },
+        {
+          "position": [
+            -24,
+            0,
+            -16
+          ],
+          "rotation": [
+            0,
+            1.7,
+            0
+          ],
+          "scale": 0.62
+        },
+        {
+          "position": [
+            21,
+            0,
+            -38
+          ],
+          "rotation": [
+            0,
+            -0.7,
+            0
+          ],
+          "scale": 0.72
+        },
+        {
+          "position": [
+            38,
+            0,
+            7
+          ],
+          "rotation": [
+            0,
+            2.1,
+            0
+          ],
+          "scale": 0.55
+        }
+      ]
+    },
+    {
+      "id": "modular-fort-01",
+      "source": "https://polyhaven.com/a/modular_fort_01",
+      "author": "Rico Cilliers",
+      "license": "CC0-1.0",
+      "url": "/assets/environment/models/modular_fort_01/modular_fort_01.gltf",
+      "castShadow": true,
+      "receiveShadow": true,
+      "placements": [
+        {
+          "position": [
+            -35,
+            0,
+            -20
+          ],
+          "rotation": [
+            0,
+            0.35,
+            0
+          ],
+          "scale": 0.13
+        }
+      ]
+    }
+  ],
+  "notes": "Models are downloaded at build time from Poly Haven's official public API in glTF 2K. GLTF dependencies are saved beside each scene file. Existing procedural terrain and structures remain as fallback. The fort is scaled as a compact showcase outpost; validate placement/collision separately."
 }
