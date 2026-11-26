@@ -8,6 +8,22 @@ const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setSize(innerW
 scene.add(new THREE.HemisphereLight(0xe2eaff,0x394537,1.65));const sun=new THREE.DirectionalLight(0xffe0b5,3.0);sun.position.set(-32,46,24);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.left=-72;sun.shadow.camera.right=72;sun.shadow.camera.top=72;sun.shadow.camera.bottom=-72;sun.shadow.camera.near=1;sun.shadow.camera.far=125;sun.shadow.bias=-0.00025;scene.add(sun);
 const materialCache=new Map();const mat=c=>{if(!materialCache.has(c))materialCache.set(c,new THREE.MeshStandardMaterial({color:c,roughness:.86}));return materialCache.get(c);};
 const worldSolids=[],solidBounds=[],pickupBounds=[],obstacleColliders=[],impactSurfaces=[];
+
+function makeSurfaceMap(kind){
+ const c=document.createElement('canvas');c.width=c.height=256;const ctx=c.getContext('2d');
+ const palettes={asphalt:['#353a38','#454946','#292e2c'],concrete:['#77796f','#89877b','#62675f'],dirt:['#625b43','#776c4d','#4d4a38'],bark:['#493728','#68503a','#332b22']};
+ const colors=palettes[kind];ctx.fillStyle=colors[0];ctx.fillRect(0,0,256,256);
+ let seed=kind==='asphalt'?17:kind==='concrete'?31:kind==='dirt'?53:79;
+ const rand=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
+ for(let i=0;i<5200;i++){const x=rand()*256,y=rand()*256,r=rand()*(kind==='bark'?2.8:1.8)+.3;ctx.globalAlpha=.08+rand()*.22;ctx.fillStyle=colors[1+Math.floor(rand()*2)];ctx.beginPath();ctx.ellipse(x,y,r*(kind==='bark'?.5:1),r,rand()*Math.PI,0,Math.PI*2);ctx.fill();}
+ ctx.globalAlpha=1;
+ if(kind==='concrete'){for(let i=0;i<13;i++){const x=rand()*256,y=rand()*256;ctx.strokeStyle='rgba(35,39,34,.25)';ctx.lineWidth=1+rand();ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+rand()*18-9,y+rand()*24);ctx.stroke();}}
+ if(kind==='asphalt'){for(let i=0;i<9;i++){const x=rand()*256,y=rand()*256;ctx.strokeStyle='rgba(15,18,17,.35)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+rand()*24,y+rand()*16);ctx.stroke();}}
+ if(kind==='bark'){for(let i=0;i<28;i++){const x=rand()*256;ctx.strokeStyle='rgba(20,14,10,.35)';ctx.lineWidth=1+rand()*2;ctx.beginPath();ctx.moveTo(x,rand()*256);ctx.lineTo(x+(rand()-.5)*7,256);ctx.stroke();}}
+ const tex=new THREE.CanvasTexture(c);tex.wrapS=tex.wrapT=THREE.RepeatWrapping;tex.repeat.set(kind==='bark'?1.2:3,kind==='bark'?1.6:3);tex.colorSpace=THREE.SRGBColorSpace;tex.anisotropy=renderer.capabilities.getMaxAnisotropy();return tex;
+}
+const surfaceMaps={asphalt:makeSurfaceMap('asphalt'),concrete:makeSurfaceMap('concrete'),dirt:makeSurfaceMap('dirt'),bark:makeSurfaceMap('bark')};
+
 // Procedural dirt-and-grass albedo: subtle mottling gives the terrain a natural surface.
 const terrainSize=256,terrainPixels=new Uint8Array(terrainSize*terrainSize*4);
 let terrainSeed=7391;const terrainRand=()=>{terrainSeed=(terrainSeed*1664525+1013904223)>>>0;return terrainSeed/4294967296;};
@@ -42,7 +58,7 @@ for(let i=0;i<520;i++){const x=(terrainRand()-.5)*92,z=(terrainRand()-.5)*82;if(
 grass.count=grassCount;grass.instanceMatrix.needsUpdate=true;grass.castShadow=false;grass.receiveShadow=true;scene.add(grass);
 // The old flat grid floated above the uneven terrain, so it is omitted.
 // Military training-ground surfacing, road paint and concrete firing lanes
-function floorPatch(x,z,w,d,color,y=.022){const geo=new THREE.PlaneGeometry(w,d,Math.max(2,Math.ceil(w*2)),Math.max(2,Math.ceil(d*2)));const p=geo.attributes.position;for(let i=0;i<p.count;i++){const wx=x+p.getX(i),wz=z-p.getY(i);p.setZ(i,terrainHeightAt(wx,wz)+y);}geo.computeVertexNormals();const m=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color,roughness:.96,side:THREE.DoubleSide}));m.rotation.x=-Math.PI/2;m.position.set(x,0,z);m.receiveShadow=true;m.castShadow=false;scene.add(m);impactSurfaces.push(m);return m;}
+function floorPatch(x,z,w,d,color,y=.022){const geo=new THREE.PlaneGeometry(w,d,Math.max(2,Math.ceil(w*2)),Math.max(2,Math.ceil(d*2)));const p=geo.attributes.position;for(let i=0;i<p.count;i++){const wx=x+p.getX(i),wz=z-p.getY(i);p.setZ(i,terrainHeightAt(wx,wz)+y);}geo.computeVertexNormals();const surfaceKind=color<0x600000?'asphalt':(color>0x700000?'concrete':'dirt');const m=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color,map:surfaceMaps[surfaceKind],roughness:surfaceKind==='asphalt'?.94:.98,side:THREE.DoubleSide}));m.rotation.x=-Math.PI/2;m.position.set(x,0,z);m.receiveShadow=true;m.castShadow=false;scene.add(m);impactSurfaces.push(m);return m;}
 floorPatch(0,-30,9,88,0x454b49);floorPatch(-30,0,8,86,0x55594f);
 for(let z=-42;z<43;z+=8){floorPatch(0,z,.18,3.2,0xc5b98d,.04);}
 for(let x=-3;x<=3;x+=1.5){floorPatch(x,0,.08,18,0x999582,.043);}
@@ -64,7 +80,14 @@ water.rotation.x=-Math.PI/2;water.position.set(lakeX,-.08,lakeZ);scene.add(water
 const shore=new THREE.Mesh(new THREE.TorusGeometry(lakeRadius,.42,8,48),mat(0x827d62));shore.rotation.x=Math.PI/2;shore.position.set(lakeX,.08,lakeZ);shore.receiveShadow=true;scene.add(shore);impactSurfaces.push(shore);
 for(let i=0;i<18;i++){const a=i*Math.PI*2/18,rock=new THREE.Mesh(new THREE.DodecahedronGeometry(.42+((i*7)%4)*.09,0),mat(i%2?0x777967:0x91866e));rock.position.set(lakeX+Math.cos(a)*(lakeRadius+.35),.25,lakeZ+Math.sin(a)*(lakeRadius+.35));rock.scale.y=.65;rock.castShadow=false;scene.add(rock);impactSurfaces.push(rock);}
 // More trees in small groves; trunks also block movement and bullets
-function tree(x,z,scale=1){const g=new THREE.Group();const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.22*scale,.34*scale,2.2*scale,7),mat(0x594735));trunk.position.y=1.1*scale;trunk.castShadow=false;g.add(trunk);for(let j=0;j<3;j++){const crown=new THREE.Mesh(new THREE.ConeGeometry((1.45-j*.2)*scale,2.5*scale,7),mat(j===0?0x405a40:0x4d6947));crown.position.y=(2.5+j*1.05)*scale;crown.castShadow=false;g.add(crown);}const base=terrainHeightAt(x,z);g.position.set(x,base,z);scene.add(g);worldSolids.push(trunk);trunk.updateMatrixWorld(true);solidBounds.push(new THREE.Box3().setFromObject(trunk));obstacleColliders.push({kind:'circle',x,z,radius:.34*scale,minY:base,maxY:base+2.2*scale,jumpable:false});}
+function tree(x,z,scale=1){
+ const g=new THREE.Group(),barkMat=new THREE.MeshStandardMaterial({color:0xb4a08a,map:surfaceMaps.bark,roughness:1});
+ const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.22*scale,.34*scale,2.65*scale,9),barkMat);trunk.position.y=1.32*scale;trunk.castShadow=true;trunk.receiveShadow=true;g.add(trunk);
+ for(let k=0;k<3;k++){const branch=new THREE.Mesh(new THREE.CylinderGeometry(.045*scale,.095*scale,1.15*scale,6),barkMat);branch.position.set((k-1)*.32*scale,(2.05+k*.22)*scale,0);branch.rotation.z=(k-1)*-.48;branch.castShadow=true;g.add(branch);}
+ const leafMats=[0x344d35,0x405d3c,0x526b43,0x60734a].map(c=>new THREE.MeshStandardMaterial({color:c,roughness:1}));
+ for(let j=0;j<12;j++){const a=j*2.399,rad=(.35+(j%4)*.19)*scale,y=(2.35+(j%4)*.52)*scale,s=(.62+(j%3)*.15)*scale;const crown=new THREE.Mesh(new THREE.IcosahedronGeometry(1,1),leafMats[j%leafMats.length]);crown.position.set(Math.cos(a)*rad,y,Math.sin(a)*rad);crown.scale.set(s*1.12,s*.9,s);crown.rotation.set(.2*j,.37*j,.13*j);crown.castShadow=true;crown.receiveShadow=true;g.add(crown);}
+ const base=terrainHeightAt(x,z);g.position.set(x,base,z);scene.add(g);worldSolids.push(trunk);trunk.updateMatrixWorld(true);solidBounds.push(new THREE.Box3().setFromObject(trunk));obstacleColliders.push({kind:'circle',x,z,radius:.34*scale,minY:base,maxY:base+2.65*scale,jumpable:false});
+}
 [[-34,-12],[-39,-4],[-31,1],[-42,12],[-35,17],[-25,34],[-18,38],[-8,34],[13,37],[20,42],[42,12],[43,2],[37,-10],[29,-39],[17,-42],[-14,-39]].forEach((p,i)=>tree(p[0],p[1],.85+(i%3)*.12));
 // Low crates and fallen logs can be cleared with a jump; taller cover remains solid
 for(let i=0;i<6;i++){const x=-18+i*7,z=(i%2===0? -7:7);block(x,.34,z,1.35,.68,1.05,i%2?0x786448:0x8b7655);}
@@ -110,6 +133,16 @@ function addCombatBuilding(x,z,style='house'){
    }
   }
  }
+ // Surface wear, roof seams and reinforced window details add believable military architecture.
+ const concreteDetail=new THREE.MeshStandardMaterial({color:0x77796f,map:surfaceMaps.concrete,roughness:.98});
+ const metalDetail=new THREE.MeshStandardMaterial({color:0x46514d,roughness:.72,metalness:.28});
+ for(const side of [-1,1]){
+  const corner=new THREE.Mesh(new THREE.BoxGeometry(.12,h-.18,.12),metalDetail);corner.position.set(x+side*(w/2-.18),h/2,z-d/2-.025);corner.castShadow=true;scene.add(corner);
+  if(!warehouse){const sill=new THREE.Mesh(new THREE.BoxGeometry(1.18,.09,.16),concreteDetail);sill.position.set(x+side*2.35,1.34,z+d/2+.07);sill.castShadow=true;scene.add(sill);}
+ }
+ for(let k=0;k<(warehouse?6:4);k++){const seam=new THREE.Mesh(new THREE.BoxGeometry(warehouse?1.45:1.15,.035,d+.25),metalDetail);seam.position.set(x-w/2+.8+k*(w-1.6)/Math.max(1,(warehouse?5:3)),h+.39,z);scene.add(seam);}
+ const vent=new THREE.Mesh(new THREE.BoxGeometry(warehouse?1.5:.8,.55,.08),metalDetail);vent.position.set(x-w*.28,h*.72,z+d/2+.035);scene.add(vent);
+ for(let q=0;q<3;q++){const slat=new THREE.Mesh(new THREE.BoxGeometry(warehouse?1.28:.62,.035,.1),concreteDetail);slat.position.set(x-w*.28,h*.72-.16+q*.14,z+d/2+.09);scene.add(slat);}
  // Building foundation colliders are handled by the same solid block helper above.
 }
 addCombatBuilding(-14,-34,'house');
