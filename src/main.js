@@ -6,7 +6,7 @@ const scene=new THREE.Scene();scene.background=new THREE.Color(0x9aa99a);scene.f
 const camera=new THREE.PerspectiveCamera(67,innerWidth/innerHeight,.1,180);
 const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,1.75));renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.12;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;root.prepend(renderer.domElement);
 scene.add(new THREE.HemisphereLight(0xe2eaff,0x394537,1.65));const sun=new THREE.DirectionalLight(0xffe0b5,3.0);sun.position.set(-32,46,24);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.left=-72;sun.shadow.camera.right=72;sun.shadow.camera.top=72;sun.shadow.camera.bottom=-72;sun.shadow.camera.near=1;sun.shadow.camera.far=125;sun.shadow.bias=-0.00025;scene.add(sun);
-const materialCache=new Map();const mat=c=>{if(!materialCache.has(c))materialCache.set(c,new THREE.MeshStandardMaterial({color:c,roughness:.86}));return materialCache.get(c);};
+const materialCache=new Map();const mat=c=>{if(!materialCache.has(c)){const concreteColors=[0x777d76,0x9a927e,0x777b70,0x77796d,0x626b65,0x696f69,0x8c806d,0x77796f];const asphaltColors=[0x555e59,0x454b49];const map=concreteColors.includes(c)?surfaceMaps.concrete:asphaltColors.includes(c)?surfaceMaps.asphalt:null;materialCache.set(c,new THREE.MeshStandardMaterial({color:c,roughness:map?.98:.86,map}));}return materialCache.get(c);};
 const worldSolids=[],solidBounds=[],pickupBounds=[],obstacleColliders=[],impactSurfaces=[];
 
 function makeSurfaceMap(kind){
@@ -125,7 +125,7 @@ function addCombatBuilding(x,z,style='house'){
   const awning=new THREE.Mesh(new THREE.BoxGeometry(doorW+.8,.16,.85),mat(0x59645a));
   awning.position.set(x,h-.12,z+d/2+.38);awning.castShadow=true;scene.add(awning);
   for(const sx of [-1,1]){
-   const win=new THREE.Mesh(new THREE.PlaneGeometry(.95,.72),new THREE.MeshStandardMaterial({color:0x303f40,roughness:.35,metalness:.15}));
+   const win=new THREE.Mesh(new THREE.PlaneGeometry(.95,.72),new THREE.MeshStandardMaterial({color:0x8ba6a4,roughness:.16,metalness:.32,transparent:true,opacity:.48,depthWrite:false,side:THREE.DoubleSide}));
    win.position.set(x+sx*2.35,1.75,z+d/2+.018);scene.add(win);
    const frameMat=mat(0xb1a78d);
    for(const [ox,oy,ww,hh] of [[0,.39,1.08,.09],[0,-.39,1.08,.09],[-.5,0,.09,.86],[.5,0,.09,.86]]){
