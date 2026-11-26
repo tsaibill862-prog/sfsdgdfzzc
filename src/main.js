@@ -16,6 +16,10 @@ async function loadEnvironmentAssetManifest(){
   if(!response.ok)throw new Error(`manifest HTTP ${response.status}`);
   const manifest=await response.json();
   for(const asset of (manifest.assets||[])){
+   if(asset.type==='ground-material'){
+    environmentGLTFLoader.load(asset.url,gltf=>{let sourceMaterial=null;gltf.scene.traverse(node=>{if(!sourceMaterial&&node.isMesh)sourceMaterial=Array.isArray(node.material)?node.material[0]:node.material;});if(!sourceMaterial)return;const material=sourceMaterial.clone();for(const key of ['map','normalMap','roughnessMap','aoMap','metalnessMap']){const texture=material[key];if(texture){texture.wrapS=texture.wrapT=THREE.RepeatWrapping;texture.repeat.set(asset.repeat||12,asset.repeat||12);texture.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());}}material.color.set(0xffffff);material.roughness=Math.max(material.roughness||0,.82);ground.material=material;ground.material.needsUpdate=true;},undefined,error=>console.warn('Ground PBR material failed',error));
+    continue;
+   }
    if(!asset.url)continue;
    environmentGLTFLoader.load(asset.url,gltf=>{
     const placements=asset.placements||[{position:asset.position||[0,0,0],rotation:asset.rotation||[0,0,0],scale:asset.scale||1}];
@@ -30,8 +34,8 @@ async function loadEnvironmentAssetManifest(){
    },undefined,error=>console.warn(`Environment asset failed: ${asset.id||asset.url}`,error));
   }
  }catch(error){console.info('Environment GLB manifest not loaded; procedural scene remains active.',error);}
+  }
 }
-loadEnvironmentAssetManifest();
 const materialCache=new Map();const mat=c=>{if(!materialCache.has(c)){const concreteColors=[0x777d76,0x9a927e,0x777b70,0x77796d,0x626b65,0x696f69,0x8c806d,0x77796f];const asphaltColors=[0x555e59,0x454b49];const map=concreteColors.includes(c)?surfaceMaps.concrete:asphaltColors.includes(c)?surfaceMaps.asphalt:null;materialCache.set(c,new THREE.MeshStandardMaterial({color:c,roughness:map?.98:.86,map}));}return materialCache.get(c);};
 const worldSolids=[],solidBounds=[],pickupBounds=[],obstacleColliders=[],impactSurfaces=[];
 
@@ -75,7 +79,7 @@ function terrainHeightAt(x,z){
 const terrainGeo=new THREE.PlaneGeometry(180,180,150,150),terrainPos=terrainGeo.attributes.position;
 for(let i=0;i<terrainPos.count;i++){const x=terrainPos.getX(i),z=-terrainPos.getY(i);terrainPos.setZ(i,terrainHeightAt(x,z));}
 terrainGeo.computeVertexNormals();
-const ground=new THREE.Mesh(terrainGeo,new THREE.MeshStandardMaterial({color:0xffffff,map:terrainTexture,roughness:1}));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);impactSurfaces.push(ground);
+const ground=new THREE.Mesh(terrainGeo,new THREE.MeshStandardMaterial({color:0xffffff,map:terrainTexture,roughness:1}));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);impactSurfaces.push(ground);\nloadEnvironmentAssetManifest();
 
 // Low grass tufts are instanced to keep draw calls low while breaking up the flat ground.
 const grassGeo=new THREE.ConeGeometry(.075,.42,3),grassMat=new THREE.MeshStandardMaterial({color:0x66794b,roughness:1,side:THREE.DoubleSide});
