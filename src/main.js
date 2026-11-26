@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import './style.css';
 const root=document.querySelector('#game');
-root.innerHTML="<div id='hud'><header><b>PROJECT BATTLE ROYALE</b><small>ALPHA 3.1 · TERRAIN CONFORM</small></header><div class='stats'><span>生命 <b id='hp'>100</b></span><span>擊殺 <b id='kills'>0</b></span><span>敵人 <b id='left'>5</b></span><span id='timer'>00:00</span></div><div class='cross'>+</div><div class='help'>WASD 移動 · Shift 衝刺 · Space 跳躍<br>左鍵射擊 · 右鍵瞄準 · R 裝填 · 1–4 換槍</div><div class='weapon'><b id='weapon'>突擊步槍</b><strong id='ammo'>30</strong><small id='reserve'>/ 150</small><p id='hint'>全自動 · 中距離</p></div><div id='hit'>✕</div><div id='damage'></div><div id='toast'></div></div><div id='overlay' class='visible'><section><small>TRAINING ARENA · BUILD 3.1</small><h1>PROJECT<br><em>BATTLE ROYALE</em></h1><p id='desc'>AI 敵人已進駐訓練場。利用掩體、切換武器並消滅所有敵人。</p><div class='tags'>第三人稱射擊　·　4 種武器　·　AI 敵人　·　生命系統</div><button id='start'>開始戰鬥</button><small class='note'>建議使用電腦與滑鼠遊玩</small></section></div>";
+root.innerHTML="<div id='hud'><header><b>PROJECT BATTLE ROYALE</b><small>ALPHA 3.2 · COMBAT BUILDINGS</small></header><div class='stats'><span>生命 <b id='hp'>100</b></span><span>擊殺 <b id='kills'>0</b></span><span>敵人 <b id='left'>5</b></span><span id='timer'>00:00</span></div><div class='cross'>+</div><div class='help'>WASD 移動 · Shift 衝刺 · Space 跳躍<br>左鍵射擊 · 右鍵瞄準 · R 裝填 · 1–4 換槍</div><div class='weapon'><b id='weapon'>突擊步槍</b><strong id='ammo'>30</strong><small id='reserve'>/ 150</small><p id='hint'>全自動 · 中距離</p></div><div id='hit'>✕</div><div id='damage'></div><div id='toast'></div></div><div id='overlay' class='visible'><section><small>TRAINING ARENA · BUILD 3.2</small><h1>PROJECT<br><em>BATTLE ROYALE</em></h1><p id='desc'>AI 敵人已進駐訓練場。利用掩體、切換武器並消滅所有敵人。</p><div class='tags'>第三人稱射擊　·　4 種武器　·　AI 敵人　·　生命系統</div><button id='start'>開始戰鬥</button><small class='note'>建議使用電腦與滑鼠遊玩</small></section></div>";
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x9aa99a);scene.fog=new THREE.Fog(0x9aa99a,52,145);
 const camera=new THREE.PerspectiveCamera(67,innerWidth/innerHeight,.1,180);
 const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.08;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;root.prepend(renderer.domElement);
@@ -78,6 +78,44 @@ block(38,3.2,-24,11.5,.45,9.5,0x696f69);
 for(const x of [34.5,37.8,41.1]){block(x,.55,-18.55,1.1,1.1,.42,0x9a8d70);}
 for(let i=0;i<5;i++){const x=25+i*2.2;block(x,.48,-11,1.8,.96,.72,0x8b806b);}
 for(let i=0;i<4;i++){const x=25+i*2.4;const barrel=new THREE.Mesh(new THREE.CylinderGeometry(.38,.38,.95,12),mat(i%2?0x59645b:0x6e5540));const base=terrainHeightAt(x,-14.5);barrel.position.set(x,base+.475,-14.5);barrel.castShadow=true;barrel.receiveShadow=true;scene.add(barrel);worldSolids.push(barrel);barrel.updateMatrixWorld(true);solidBounds.push(new THREE.Box3().setFromObject(barrel));obstacleColliders.push({kind:'cylinder',x,z:-14.5,radius:.4,minY:base,maxY:base+.95,jumpable:true,mesh:barrel});}
+// Additional traversable military buildings: grounded foundations, doorway gaps and solid wall colliders.
+function addCombatBuilding(x,z,style='house'){
+ const warehouse=style==='warehouse',base=terrainHeightAt(x,z);
+ const w=warehouse?11:8.4,d=warehouse?9:8,h=warehouse?3.5:2.8,t=.42;
+ floorPatch(x,z,w+1.1,d+1.1,warehouse?0x77796d:0x777b70,.045);
+ // Rear and side walls.
+ block(x, h/2,z-d/2+t/2,w,h,t,warehouse?0x777d76:0x9a927e);
+ block(x-w/2+t/2,h/2,z,t,h,d-2*t,warehouse?0x777d76:0x9a927e);
+ block(x+w/2-t/2,h/2,z,t,h,d-2*t,warehouse?0x777d76:0x9a927e);
+ // Front wall leaves a proper entrance; the lintel sits above the opening.
+ const doorW=warehouse?2.2:1.55,frontZ=z+d/2-t/2,sideW=(w-doorW)/2;
+ block(x-w/2+sideW/2,h/2,frontZ,sideW,h,t,warehouse?0x777d76:0x9a927e);
+ block(x+w/2-sideW/2,h/2,frontZ,sideW,h,t,warehouse?0x777d76:0x9a927e);
+ block(x,h-.22,frontZ,doorW,.44,t,warehouse?0x626b65:0x77796d);
+ // Flat reinforced roof and a raised ridge cap give each silhouette a distinct profile.
+ block(x,h+.18,z,w+.55,.36,d+.55,warehouse?0x555e59:0x626a5d);
+ if(!warehouse)block(x,h+.43,z, .24,.18,d+.25,0x4d594e);
+ // Dark inset doorway and small awning are visual details; the opening remains walkable.
+ const door=new THREE.Mesh(new THREE.PlaneGeometry(doorW-.18,h-.42),new THREE.MeshStandardMaterial({color:0x292f2a,roughness:1}));
+ door.position.set(x, (h-.42)/2+.04, z+d/2-t+.012);scene.add(door);
+ if(!warehouse){
+  const awning=new THREE.Mesh(new THREE.BoxGeometry(doorW+.8,.16,.85),mat(0x59645a));
+  awning.position.set(x,h-.12,z+d/2+.38);awning.castShadow=true;scene.add(awning);
+  for(const sx of [-1,1]){
+   const win=new THREE.Mesh(new THREE.PlaneGeometry(.95,.72),new THREE.MeshStandardMaterial({color:0x303f40,roughness:.35,metalness:.15}));
+   win.position.set(x+sx*2.35,1.75,z+d/2-t-.015);scene.add(win);
+   const frameMat=mat(0xb1a78d);
+   for(const [ox,oy,ww,hh] of [[0,.39,1.08,.09],[0,-.39,1.08,.09],[-.5,0,.09,.86],[.5,0,.09,.86]]){
+    const frame=new THREE.Mesh(new THREE.BoxGeometry(ww,hh,.08),frameMat);frame.position.set(x+sx*2.35+ox,1.75+oy,z+d/2-t-.055);scene.add(frame);
+   }
+  }
+ }
+ // Building foundation colliders are handled by the same solid block helper above.
+}
+addCombatBuilding(-14,-34,'house');
+addCombatBuilding(15,17,'house');
+addCombatBuilding(-37,5,'warehouse');
+
 // Jagged boulder fields on the ridge approaches; each rock has a matching movement collider.
 function boulderField(cx,cz,count,spread,seed=1){for(let i=0;i<count;i++){const a=i*2.399+seed,r=spread*(.22+.78*((i*7%13)/13)),x=cx+Math.cos(a)*r,z=cz+Math.sin(a)*r,base=terrainHeightAt(x,z),sx=.65+(i%3)*.28,sy=.7+(i%4)*.25,sz=.6+(i%2)*.35;const rock=new THREE.Mesh(new THREE.DodecahedronGeometry(1,1),mat(i%3===0?0x77786b:0x686d62));rock.scale.set(sx,sy,sz);rock.position.set(x,base+sy*.72,z);rock.rotation.set(.1*i,.37*i,.08*i);rock.castShadow=true;rock.receiveShadow=true;scene.add(rock);worldSolids.push(rock);rock.updateMatrixWorld(true);solidBounds.push(new THREE.Box3().setFromObject(rock));obstacleColliders.push({kind:'rock',x,z,radius:Math.max(sx,sz)*.72,minY:base,maxY:base+sy*1.72,jumpable:true,mesh:rock});impactSurfaces.push(rock);}}
 boulderField(-23,-23,11,8,2);boulderField(14,-35,9,7,4);boulderField(-31,23,10,8,6);
