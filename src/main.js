@@ -97,16 +97,16 @@ function addCombatBuilding(x,z,style='house'){
  if(!warehouse)block(x,h+.43,z, .24,.18,d+.25,0x4d594e);
  // Dark inset doorway and small awning are visual details; the opening remains walkable.
  const door=new THREE.Mesh(new THREE.PlaneGeometry(doorW-.18,h-.42),new THREE.MeshStandardMaterial({color:0x292f2a,roughness:1}));
- door.position.set(x, (h-.42)/2+.04, z+d/2-t+.012);scene.add(door);
+ door.position.set(x, (h-.42)/2+.04, z+d/2+.012);scene.add(door);
  if(!warehouse){
   const awning=new THREE.Mesh(new THREE.BoxGeometry(doorW+.8,.16,.85),mat(0x59645a));
   awning.position.set(x,h-.12,z+d/2+.38);awning.castShadow=true;scene.add(awning);
   for(const sx of [-1,1]){
    const win=new THREE.Mesh(new THREE.PlaneGeometry(.95,.72),new THREE.MeshStandardMaterial({color:0x303f40,roughness:.35,metalness:.15}));
-   win.position.set(x+sx*2.35,1.75,z+d/2-t-.015);scene.add(win);
+   win.position.set(x+sx*2.35,1.75,z+d/2+.018);scene.add(win);
    const frameMat=mat(0xb1a78d);
    for(const [ox,oy,ww,hh] of [[0,.39,1.08,.09],[0,-.39,1.08,.09],[-.5,0,.09,.86],[.5,0,.09,.86]]){
-    const frame=new THREE.Mesh(new THREE.BoxGeometry(ww,hh,.08),frameMat);frame.position.set(x+sx*2.35+ox,1.75+oy,z+d/2-t-.055);scene.add(frame);
+    const frame=new THREE.Mesh(new THREE.BoxGeometry(ww,hh,.08),frameMat);frame.position.set(x+sx*2.35+ox,1.75+oy,z+d/2+.025);scene.add(frame);
    }
   }
  }
