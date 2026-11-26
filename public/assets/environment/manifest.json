@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "licensePolicy": "Only ship assets whose individual source page confirms CC0-1.0 or an explicitly approved commercial license.",
+  "assets": [],
+  "notes": "Add optimized .glb files under /assets/environment/models/ and list them here. Positions and rotations are in world units/radians; scale is uniform."
+}
