@@ -33,3 +33,6 @@
 #inventoryStats b{color:#e4efda}
 @media(max-width:760px){.inventory-layout{grid-template-columns:1fr 1fr}.inventory-character{grid-column:1/-1}.inventory-shell{padding:13px}.bag-slot{min-height:78px}}
 @media(max-width:480px){.inventory-layout{grid-template-columns:1fr}.inventory-character{grid-column:auto}#backpackGrid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+
+/* Loot interaction prompt */
+#pickupPrompt{position:absolute;left:50%;top:calc(50% + 34px);transform:translateX(-50%);padding:8px 16px;background:#101713dc;border:1px solid #c2d99b;color:#f1f4e9;font-size:14px;letter-spacing:.5px;white-space:nowrap;text-shadow:0 2px 4px #000}
