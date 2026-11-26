@@ -25,13 +25,22 @@ async function loadEnvironmentAssetManifest(){
   const assets=manifest.assets||[];
   treeExpected=assets.filter(a=>/tree/i.test(a.id||'')).reduce((n,a)=>n+(a.placements?.length||1),0);
   refreshStatus();
-  for(const asset of assets){
-   if(asset.type==='ground-material'){
-    environmentGLTFLoader.load(asset.url,gltf=>{let sourceMaterial=null;gltf.scene.traverse(node=>{if(!sourceMaterial&&node.isMesh)sourceMaterial=Array.isArray(node.material)?node.material[0]:node.material;});if(!sourceMaterial){otherFailed++;refreshStatus();console.error('Ground material has no mesh:',asset.url);return;}const material=sourceMaterial.clone();for(const key of ['map','normalMap','roughnessMap','aoMap','metalnessMap']){const texture=material[key];if(texture){texture.wrapS=texture.wrapT=THREE.RepeatWrapping;texture.repeat.set(asset.repeat||12,asset.repeat||12);texture.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());}}material.color.set(0xffffff);material.roughness=Math.max(material.roughness||0,.82);ground.material=material;ground.material.needsUpdate=true;otherLoaded++;refreshStatus();},undefined,error=>{otherFailed++;refreshStatus();console.error('Ground PBR material failed:',asset.url,error);});
-    continue;
-   }
-   if(!asset.url)continue;
-   environmentGLTFLoader.load(asset.url,gltf=>{
+  await Promise.all(assets.map(async asset=>{
+   if(!asset.url)return;
+   try{
+    const gltf=await environmentGLTFLoader.loadAsync(asset.url);
+    if(asset.type==='ground-material'){
+     let sourceMaterial=null;
+     gltf.scene.traverse(node=>{if(!sourceMaterial&&node.isMesh)sourceMaterial=Array.isArray(node.material)?node.material[0]:node.material;});
+     if(!sourceMaterial)throw new Error('Ground material has no mesh');
+     const material=sourceMaterial.clone();
+     for(const key of ['map','normalMap','roughnessMap','aoMap','metalnessMap']){
+      const texture=material[key];
+      if(texture){texture.wrapS=texture.wrapT=THREE.RepeatWrapping;texture.repeat.set(asset.repeat||12,asset.repeat||12);texture.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());}
+     }
+     material.color.set(0xffffff);material.roughness=Math.max(material.roughness||0,.82);
+     ground.material=material;ground.material.needsUpdate=true;otherLoaded++;refreshStatus();return;
+    }
     let meshCount=0;
     const placements=asset.placements||[{position:asset.position||[0,0,0],rotation:asset.rotation||[0,0,0],scale:asset.scale||1}];
     for(const placement of placements){
@@ -43,17 +52,23 @@ async function loadEnvironmentAssetManifest(){
      const x=placement.position?.[0]||0,z=placement.position?.[2]||0;
      const terrainY=typeof terrainHeightAt==='function'?terrainHeightAt(x,z):(placement.position?.[1]||0);
      if(Number.isFinite(bounds.min.y))model.position.y=terrainY-bounds.min.y;
-     model.position.x=x;
-     model.position.z=z;
+     model.position.x=x;model.position.z=z;
      model.traverse(node=>{if(node.isMesh){meshCount++;node.castShadow=asset.castShadow!==false;node.receiveShadow=asset.receiveShadow!==false;if(node.material){const materials=Array.isArray(node.material)?node.material:[node.material];for(const material of materials){if(material.map)material.map.colorSpace=THREE.SRGBColorSpace;if(material.normalMap)material.normalScale.setScalar(asset.normalScale||1);if(material.transparent||material.alphaTest>0){material.alphaTest=Math.max(material.alphaTest||0,.42);material.depthWrite=true;}}}}});
      scene.add(model);
     }
     if(/tree/i.test(asset.id||''))treeLoaded+=placements.length;else otherLoaded++;
     refreshStatus();
     console.info(`Environment asset loaded: ${asset.id}; meshes=${meshCount}; instances=${placements.length}`);
-   },undefined,error=>{if(/tree/i.test(asset.id||''))treeFailed+=placements.length;else otherFailed++;refreshStatus();console.error(`Environment asset failed: ${asset.id||asset.url}`,asset.url,error);});
-  }
- }catch(error){environmentStatus.textContent='環境模型載入失敗：'+error.message;console.error('Environment manifest failed',error);}
+   }catch(error){
+    if(/tree/i.test(asset.id||''))treeFailed+=(asset.placements?.length||1);else otherFailed++;
+    refreshStatus();console.error(`Environment asset failed: ${asset.id||asset.url}`,asset.url,error);
+   }
+  }));
+  refreshStatus();
+ }catch(error){
+  environmentStatus.textContent='環境模型載入失敗：'+error.message;
+  console.error('Environment manifest failed',error);
+ }
 }
 const materialCache=new Map();const mat=c=>{if(!materialCache.has(c)){const concreteColors=[0x777d76,0x9a927e,0x777b70,0x77796d,0x626b65,0x696f69,0x8c806d,0x77796f];const asphaltColors=[0x555e59,0x454b49];const map=concreteColors.includes(c)?surfaceMaps.concrete:asphaltColors.includes(c)?surfaceMaps.asphalt:null;materialCache.set(c,new THREE.MeshStandardMaterial({color:c,roughness:map?.98:.86,map}));}return materialCache.get(c);};
 const worldSolids=[],solidBounds=[],pickupBounds=[],obstacleColliders=[],impactSurfaces=[];
@@ -99,7 +114,7 @@ const terrainGeo=new THREE.PlaneGeometry(180,180,150,150),terrainPos=terrainGeo.
 for(let i=0;i<terrainPos.count;i++){const x=terrainPos.getX(i),z=-terrainPos.getY(i);terrainPos.setZ(i,terrainHeightAt(x,z));}
 terrainGeo.computeVertexNormals();
 const ground=new THREE.Mesh(terrainGeo,new THREE.MeshStandardMaterial({color:0xffffff,map:terrainTexture,roughness:1}));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);impactSurfaces.push(ground);
-loadEnvironmentAssetManifest();
+const environmentAssetsReady=loadEnvironmentAssetManifest();
 
 // Low grass tufts are instanced to keep draw calls low while breaking up the flat ground.
 const grassGeo=new THREE.ConeGeometry(.075,.42,3),grassMat=new THREE.MeshStandardMaterial({color:0x66794b,roughness:1,side:THREE.DoubleSide});
@@ -322,7 +337,7 @@ function soldierVisual(g,uniformColor=0x35483b,vestColor=0x26352d,skinColor=0xb5
  return {arms,elbows,legs,backRifle,heldRifle,gait:0,body,visual};
 }
 function setSoldierPose(rig,active,dt,hasWeapon=true,moving=false,sprinting=false,airborne=false,stanceMode='stand'){if(!rig)return;const target=active&&hasWeapon?1:0;const speed=Math.min(1,dt*11);rig.backRifle.visible=hasWeapon&&target<.5;rig.heldRifle.visible=hasWeapon&&target>=.5;const gait=moving?Math.sin(rig.gait):0,amp=airborne?.18:(sprinting?.82:.58),crouch=stanceMode==='crouch',prone=stanceMode==='prone';for(const a of rig.arms){const aimX=active?(prone?1.65:crouch?1.32:1.12):.08-gait*amp*.62,aimZ=active?-a.side*.34:-a.side*.08;a.pivot.rotation.x=THREE.MathUtils.lerp(a.pivot.rotation.x,aimX,speed);a.pivot.rotation.z=THREE.MathUtils.lerp(a.pivot.rotation.z,aimZ,speed);}for(const leg of rig.legs||[]){const swing=moving?Math.sin(rig.gait+(leg.side<0?Math.PI:0))*amp:0;leg.pivot.rotation.x=THREE.MathUtils.lerp(leg.pivot.rotation.x,airborne?-.28:(prone?1.35:crouch?1.02:swing),speed);leg.pivot.rotation.z=THREE.MathUtils.lerp(leg.pivot.rotation.z,moving?leg.side*.035:0,speed);}for(const e of rig.elbows||[]){const bend=active?(stanceMode==='prone'?.72:stanceMode==='crouch'?.58:.48):.12;e.pivot.rotation.x=THREE.MathUtils.lerp(e.pivot.rotation.x,bend,speed);e.pivot.rotation.z=THREE.MathUtils.lerp(e.pivot.rotation.z,e.side*.035,speed);}if(rig.body){rig.body.position.y=THREE.MathUtils.lerp(rig.body.position.y,prone?-.62:crouch?-.28:moving?Math.abs(Math.sin(rig.gait*2))*(sprinting?.055:.028):0,speed);rig.body.rotation.x=THREE.MathUtils.lerp(rig.body.rotation.x,prone?1.12:crouch?.28:sprinting?-.085:(moving?-.025:0),speed);rig.body.rotation.z=THREE.MathUtils.lerp(rig.body.rotation.z,moving?Math.sin(rig.gait)*.018:0,speed);} }
-const player=new THREE.Group();scene.add(player);const playerRig=soldierVisual(player,0x46594a,0x293a31,0xb58d70);playerRig.visual.scale.setScalar(.88);let weaponOutUntil=0,moveBlend=0,gaitTime=0;const lobbyOperator=new THREE.Group();const lobbyRig=soldierVisual(lobbyOperator,0x46594a,0x293a31,0xb58d70);lobbyRig.visual.scale.setScalar(.88);lobbyOperator.position.set(0,terrainHeightAt(0,0),0);lobbyRig.backRifle.visible=true;lobbyRig.heldRifle.visible=false;scene.add(lobbyOperator);player.visible=false;const defs=[['突擊步槍',30,150,25,115,1450,.012,1,'全自動 · 中距離'],['狙擊步槍',5,35,100,900,1900,.001,1,'高傷害 · 精準射擊'],['手槍',12,72,34,280,1050,.018,1,'半自動 · 快速切換'],['霰彈槍',6,36,17,650,1550,.075,8,'近距離 · 8 發散射']];
+const player=new THREE.Group();scene.add(player);const playerRig=soldierVisual(player,0x46594a,0x293a31,0xb58d70);playerRig.visual.scale.setScalar(.44);let weaponOutUntil=0,moveBlend=0,gaitTime=0;const lobbyOperator=new THREE.Group();const lobbyRig=soldierVisual(lobbyOperator,0x46594a,0x293a31,0xb58d70);lobbyRig.visual.scale.setScalar(.44);lobbyOperator.position.set(0,terrainHeightAt(0,0),0);lobbyRig.backRifle.visible=true;lobbyRig.heldRifle.visible=false;scene.add(lobbyOperator);player.visible=false;const defs=[['突擊步槍',30,150,25,115,1450,.012,1,'全自動 · 中距離'],['狙擊步槍',5,35,100,900,1900,.001,1,'高傷害 · 精準射擊'],['手槍',12,72,34,280,1050,.018,1,'半自動 · 快速切換'],['霰彈槍',6,36,17,650,1550,.075,8,'近距離 · 8 發散射']];
 const weapons=defs.map(a=>({name:a[0],mag:a[1],ammo:0,reserve:0,damage:a[3],rate:a[4],reload:a[5],spread:a[6],pellets:a[7],hint:a[8]}));
 const ownedWeapons=[false,false,false,false];
 let wi=0,hp=100,kills=0,medKits=0,inventoryOpen=false,paused=false,pickupRequested=false,yaw=0,pitch=-.08,vy=0,grounded=true,supportY=0,supportRock=null,aim=false,locked=false,hadLock=false,started=false,dead=false,reloading=false,lastShot=0,elapsed=0,fireHeld=false,scopeUpgrade=false;
@@ -343,7 +358,7 @@ const pickupDefs=[{type:'mag',color:0xd6b34d,pos:[-8,0,4]},{type:'scope',color:0
 function addPickup(def){const g=new THREE.Group(),base=terrainHeightAt(def.pos[0],def.pos[2]);if(def.type==='weapon'){const gun=makeRifle(def.color);gun.scale.set(.8,.8,.8);gun.rotation.y=Math.PI/2;gun.position.y=.42;g.add(gun);}else{const box=new THREE.Mesh(new THREE.BoxGeometry(.72,.38,.55),mat(def.color));box.position.y=.35;box.castShadow=false;g.add(box);const band=new THREE.Mesh(new THREE.BoxGeometry(.12,.4,.58),mat(0x263129));band.position.y=.35;g.add(band);}const ring=new THREE.Mesh(new THREE.TorusGeometry(.58,.035,6,16),new THREE.MeshBasicMaterial({color:def.color}));ring.rotation.x=Math.PI/2;ring.position.y=.06;g.add(ring);g.position.set(def.pos[0],base+def.pos[1],def.pos[2]);scene.add(g);const collider=new THREE.Mesh(new THREE.BoxGeometry(.92,1.05,.82),new THREE.MeshBasicMaterial({visible:false}));collider.position.set(def.pos[0],base+.52,def.pos[2]);scene.add(collider);const pickupBox=new THREE.Box3().setFromCenterAndSize(collider.position.clone(),new THREE.Vector3(.92,1.05,.82));pickupBounds.push({collider,box:pickupBox});pickups.push({def,group:g,collider,active:true});}
 pickupDefs.forEach(addPickup);
 const enemyMats=[0x665448,0x4c5d50,0x625c4b,0x4c5257,0x66504a];
-function addEnemy(x,z,i){const g=new THREE.Group();const rig=soldierVisual(g,enemyMats[i%5],i%2?0x303b35:0x3b3930,0x9c765e);rig.visual.scale.setScalar(.88);const hitbox=new THREE.Mesh(new THREE.BoxGeometry(.95,2.05,.8),new THREE.MeshBasicMaterial({visible:false}));hitbox.position.y=1.05;hitbox.userData.enemy=g;g.add(hitbox);const floor=terrainHeightAt(x,z);g.position.set(x,floor,z);scene.add(g);const e={group:g,rig,weaponOutUntil:0,hitbox,hp:100,alive:true,cooldown:1+Math.random()*1.4,phase:Math.random()*6,spawn:new THREE.Vector3(x,floor,z)};g.userData.enemy=e;hitbox.userData.enemy=e;enemies.push(e);}
+function addEnemy(x,z,i){const g=new THREE.Group();const rig=soldierVisual(g,enemyMats[i%5],i%2?0x303b35:0x3b3930,0x9c765e);rig.visual.scale.setScalar(.44);const hitbox=new THREE.Mesh(new THREE.BoxGeometry(.42,.9,.36),new THREE.MeshBasicMaterial({visible:false}));hitbox.position.y=.46;hitbox.userData.enemy=g;g.add(hitbox);const floor=terrainHeightAt(x,z);g.position.set(x,floor,z);scene.add(g);const e={group:g,rig,weaponOutUntil:0,hitbox,hp:100,alive:true,cooldown:1+Math.random()*1.4,phase:Math.random()*6,spawn:new THREE.Vector3(x,floor,z)};g.userData.enemy=e;hitbox.userData.enemy=e;enemies.push(e);}
 [[-19,-22],[19,-23],[-25,18],[25,17],[0,-36]].forEach((p,i)=>addEnemy(p[0],p[1],i));
 function hud(){const w=weapons[wi],has=ownedWeapons[wi];document.querySelector('#hp').textContent=Math.ceil(hp);document.querySelector('#kills').textContent=kills;document.querySelector('#left').textContent=enemies.filter(e=>e.alive).length;document.querySelector('#weapon').textContent=has?w.name:'尚未取得武器';document.querySelector('#ammo').textContent=has?w.ammo:'—';document.querySelector('#reserve').textContent=has?'/ '+w.reserve+(reloading?' · 裝填中':''):'/ —';document.querySelector('#hint').textContent=has?w.hint:'探索建築與倉庫，按 F 拾取武器';document.querySelector('#damage').style.opacity=hp<45?String((45-hp)/60):'0';}
 let toastTimer;function toast(s){const el=document.querySelector('#toast');el.textContent=s;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),1100);}
@@ -370,7 +385,7 @@ function ai(dt){for(const e of enemies){if(!e.alive)continue;const p=e.group.pos
 function updateBullets(dt){for(let i=bullets.length-1;i>=0;i--){const b=bullets[i],from=b.mesh.position.clone(),travel=b.dir.clone().multiplyScalar(dt*19),to=from.clone().add(travel);ray.set(from,b.dir);ray.far=travel.length();const wall=ray.intersectObjects([...worldSolids,...impactSurfaces],false)[0];if(wall){spawnImpact(wall.point,wall.face?wall.face.normal.clone().transformDirection(wall.object.matrixWorld):b.dir.clone().negate(),'solid');b.life=0;}else{b.mesh.position.copy(to);b.life-=dt;if(b.mesh.position.distanceTo(player.position.clone().add(new THREE.Vector3(0,1,0)))<.8){spawnImpact(b.mesh.position,b.dir.clone().negate(),'enemy');hurt(7);b.life=0;}}if(b.life<=0){scene.remove(b.mesh);bullets.splice(i,1);}}}
 function collectPickups(){let nearest=null,nearestD=2.8;for(const p of pickups){if(!p.active)continue;const d=player.position.distanceTo(p.group.position);if(d<nearestD){nearest=p;nearestD=d;}}const prompt=document.querySelector('#pickupPrompt');if(prompt)prompt.textContent=nearest?(nearest.def.type==='weapon'?'按 F 拾取 '+defs[nearest.def.weaponIndex][0]:'按 F 拾取 '+({mag:'擴容彈匣',scope:'二倍鏡',med:'醫療包'}[nearest.def.type])):'';if(!nearest){pickupRequested=false;return;}if(!pickupRequested)return;pickupRequested=false;const p=nearest;p.active=false;p.group.visible=false;const pi=pickupBounds.findIndex(v=>v.collider===p.collider);if(pi>=0)pickupBounds.splice(pi,1);if(p.def.type==='weapon'){const i=p.def.weaponIndex,w=weapons[i];if(ownedWeapons[i]){w.reserve+=Math.round(w.mag*.75);toast('已拾取 '+w.name+' 彈藥');}else{ownedWeapons[i]=true;w.ammo=w.mag;w.reserve=Math.round(defs[i][2]*.4);wi=i;toast('已裝備 '+w.name+'！');}setSoldierPose(playerRig,false,1,ownedWeapons[wi]);}else if(p.def.type==='mag'){weapons.forEach((w,i)=>{if(ownedWeapons[i]){w.mag=Math.round(defs[i][1]*1.5);w.ammo=Math.min(w.mag,w.ammo+Math.round(w.mag*.5));w.reserve+=Math.round(w.mag*.5);}});toast('已拾取：擴容彈匣');}else if(p.def.type==='scope'){scopeUpgrade=true;toast('已拾取：二倍鏡（瞄準時 2 倍）');}else{medKits++;toast('已拾取：醫療包 ×1（按 H 使用）');}hud();renderInventory();}
 function resetPickups(){medKits=0;pickupBounds.length=0;pickups.forEach(p=>{p.active=true;p.group.visible=true;pickupBounds.push({collider:p.collider,box:new THREE.Box3().setFromCenterAndSize(p.collider.position.clone(),new THREE.Vector3(.92,1.05,.82))});});scopeUpgrade=false;ownedWeapons.fill(false);weapons.forEach(w=>{w.ammo=0;w.reserve=0;});wi=0;setSoldierPose(playerRig,false,1,false);}
-function start(){initAudio();if(!started){lobbyOperator.visible=false;player.visible=true;document.querySelector('#lobby').classList.remove('visible');}if(dead){hp=100;kills=0;elapsed=0;resetPickups();enemies.forEach(e=>{e.alive=true;e.hp=100;e.group.visible=true;e.group.position.copy(e.spawn);});}started=true;dead=false;paused=false;document.querySelector('#overlay').classList.remove('visible');document.querySelector('#desc').textContent='先搜尋建築與倉庫取得武器，再利用掩體擊倒 AI 敵人。';document.querySelector('#start').textContent='開始戰鬥';hud();renderer.domElement.requestPointerLock?.();}
+let startingGame=false;async function start(){if(startingGame)return;startingGame=true;initAudio();const lobbyStartButton=document.querySelector('#lobbyStart');const modeDescription=document.querySelector('#modeDescription');if(!started&&environmentStatus.textContent.includes('載入中')){if(lobbyStartButton){lobbyStartButton.disabled=true;lobbyStartButton.textContent='載入戰場…';}if(modeDescription)modeDescription.textContent='正在載入樹木、岩石、建築與地表材質，完成後立即進入戰場…';}await environmentAssetsReady;if(lobbyStartButton){lobbyStartButton.disabled=false;lobbyStartButton.textContent='開始遊戲 ➜';}if(!started){lobbyOperator.visible=false;player.visible=true;document.querySelector('#lobby').classList.remove('visible');}if(dead){hp=100;kills=0;elapsed=0;resetPickups();enemies.forEach(e=>{e.alive=true;e.hp=100;e.group.visible=true;e.group.position.copy(e.spawn);});}started=true;dead=false;paused=false;document.querySelector('#overlay').classList.remove('visible');document.querySelector('#desc').textContent='先搜尋建築與倉庫取得武器，再利用掩體擊倒 AI 敵人。';document.querySelector('#start').textContent='開始戰鬥';hud();renderer.domElement.requestPointerLock?.();startingGame=false;}
 
 function renderInventory(){
  const eq=document.querySelector('#equipmentSlots'),grid=document.querySelector('#backpackGrid');
