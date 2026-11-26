@@ -328,6 +328,7 @@ roadsideMarker(-27,-12,'NORTH RIDGE');roadsideMarker(22,-31,'FIELD DEPOT');roads
 // A timber-and-steel observation tower creates a strong skyline landmark and a new sightline.
 let towerClimb=null,towerClimbActive=false,towerClimbSpaceHeld=false;
 function observationTower(x,z){
+ const towerSceneStart=scene.children.length;
  const base=terrainHeightAt(x,z),steel=mat(0x414b47),wood=mat(0x66543d),rust=mat(0x765b40);
  const towerHeight=18.5,deckThickness=.32,deckY=base+towerHeight;
  // Four tall steel legs with a slight outward splay.
@@ -395,6 +396,8 @@ function observationTower(x,z){
  scopeBody.rotation.z=Math.PI/2;scopeBody.position.set(x-.85,deckY+.62,z-.7);scene.add(scopeBody);
  const beacon=new THREE.Mesh(new THREE.SphereGeometry(.22,12,10),new THREE.MeshStandardMaterial({color:0xe1a35d,emissive:0x8d4c20,emissiveIntensity:.85}));
  beacon.position.set(x,deckY+2.68,z);scene.add(beacon);
+ // Register every tower mesh as a bullet-raycast target, not just the deck.
+ for(const part of scene.children.slice(towerSceneStart))if(part.isMesh){part.updateMatrixWorld(true);worldSolids.push(part);solidBounds.push(new THREE.Box3().setFromObject(part));}
 }
 observationTower(-5,-35);
 // Ruined perimeter walls and stacked supply pallets add layered cover between the named areas.
