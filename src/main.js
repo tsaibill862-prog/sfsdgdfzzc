@@ -34,7 +34,6 @@ async function loadEnvironmentAssetManifest(){
    },undefined,error=>console.warn(`Environment asset failed: ${asset.id||asset.url}`,error));
   }
  }catch(error){console.info('Environment GLB manifest not loaded; procedural scene remains active.',error);}
-  }
 }
 const materialCache=new Map();const mat=c=>{if(!materialCache.has(c)){const concreteColors=[0x777d76,0x9a927e,0x777b70,0x77796d,0x626b65,0x696f69,0x8c806d,0x77796f];const asphaltColors=[0x555e59,0x454b49];const map=concreteColors.includes(c)?surfaceMaps.concrete:asphaltColors.includes(c)?surfaceMaps.asphalt:null;materialCache.set(c,new THREE.MeshStandardMaterial({color:c,roughness:map?.98:.86,map}));}return materialCache.get(c);};
 const worldSolids=[],solidBounds=[],pickupBounds=[],obstacleColliders=[],impactSurfaces=[];
