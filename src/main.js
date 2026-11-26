@@ -213,7 +213,7 @@ function toggleInventory(force){
 document.querySelector('#inventoryClose').addEventListener('click',()=>toggleInventory(false));
 
 document.querySelector('#start').onclick=start;
-document.addEventListener('pointerlockchange',()=>{locked=document.pointerLockElement===renderer.domElement;if(locked){hadLock=true;}else if(hadLock&&started&&!dead){document.querySelector('#overlay').classList.add('visible');document.querySelector('#desc').textContent='遊戲已暫停。點擊繼續戰鬥。';document.querySelector('#start').textContent='繼續戰鬥';}});
+document.addEventListener('pointerlockchange',()=>{locked=document.pointerLockElement===renderer.domElement;if(locked){hadLock=true;}else if(hadLock&&started&&!dead&&!inventoryOpen){document.querySelector('#overlay').classList.add('visible');document.querySelector('#desc').textContent='遊戲已暫停。點擊繼續戰鬥。';document.querySelector('#start').textContent='繼續戰鬥';}});
 document.addEventListener('mousemove',e=>{if(!locked)return;const mx=e.movementX,my=e.movementY;if(Math.abs(mx)>100||Math.abs(my)>100)return;const sensitivity=.0023;yaw-=mx*sensitivity;pitch=THREE.MathUtils.clamp(pitch-my*sensitivity,-.55,.45);});
 const keyAliases={KeyW:['w','ArrowUp'],KeyA:['a','ArrowLeft'],KeyS:['s','ArrowDown'],KeyD:['d','ArrowRight']};
 function setKey(e,value){const code=e.code||'';keys[code]=value;const key=(e.key||'').toLowerCase();if(key)keys[key]=value;for(const [physical,aliases] of Object.entries(keyAliases)){if(code===physical||aliases.includes(key)){keys[physical]=value;for(const alias of aliases)keys[alias]=value;}}}
