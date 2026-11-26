@@ -8,20 +8,31 @@ const camera=new THREE.PerspectiveCamera(67,innerWidth/innerHeight,.1,180);
 const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.12;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;root.prepend(renderer.domElement);
 scene.add(new THREE.HemisphereLight(0xe2eaff,0x394537,1.65));const sun=new THREE.DirectionalLight(0xffe0b5,3.0);sun.position.set(-32,46,24);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.left=-72;sun.shadow.camera.right=72;sun.shadow.camera.top=72;sun.shadow.camera.bottom=-72;sun.shadow.camera.near=1;sun.shadow.camera.far=125;sun.shadow.bias=-0.00025;scene.add(sun);
 
-// Runtime GLB environment pipeline. Poly Haven assets are CC0; placements share one loaded geometry/material set.
+// Runtime GLB environment pipeline. Each model reports its real browser load result.
 const environmentGLTFLoader=new GLTFLoader();
+const environmentStatus=document.createElement('div');
+environmentStatus.id='environmentAssetStatus';
+environmentStatus.style.cssText='position:fixed;left:12px;top:12px;z-index:30;padding:7px 10px;background:rgba(8,16,13,.78);border:1px solid rgba(180,205,170,.35);border-radius:5px;color:#e8f0df;font:12px/1.45 system-ui;pointer-events:none;max-width:310px';
+environmentStatus.textContent='環境模型：載入中…';
+root.appendChild(environmentStatus);
 async function loadEnvironmentAssetManifest(){
+ let treeExpected=0,treeLoaded=0,treeFailed=0,otherLoaded=0,otherFailed=0;
+ const refreshStatus=()=>{environmentStatus.textContent=`環境模型：樹木 ${treeLoaded}/${treeExpected} 棵（${treeFailed} 失敗） · 其他模型 ${otherLoaded} 成功（${otherFailed} 失敗）`;};
  try{
-  const response=await fetch('/assets/environment/manifest.json');
+  const response=await fetch('/assets/environment/manifest.json',{cache:'no-cache'});
   if(!response.ok)throw new Error(`manifest HTTP ${response.status}`);
   const manifest=await response.json();
-  for(const asset of (manifest.assets||[])){
+  const assets=manifest.assets||[];
+  treeExpected=assets.filter(a=>/tree/i.test(a.id||'')).reduce((n,a)=>n+(a.placements?.length||1),0);
+  refreshStatus();
+  for(const asset of assets){
    if(asset.type==='ground-material'){
-    environmentGLTFLoader.load(asset.url,gltf=>{let sourceMaterial=null;gltf.scene.traverse(node=>{if(!sourceMaterial&&node.isMesh)sourceMaterial=Array.isArray(node.material)?node.material[0]:node.material;});if(!sourceMaterial)return;const material=sourceMaterial.clone();for(const key of ['map','normalMap','roughnessMap','aoMap','metalnessMap']){const texture=material[key];if(texture){texture.wrapS=texture.wrapT=THREE.RepeatWrapping;texture.repeat.set(asset.repeat||12,asset.repeat||12);texture.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());}}material.color.set(0xffffff);material.roughness=Math.max(material.roughness||0,.82);ground.material=material;ground.material.needsUpdate=true;},undefined,error=>console.warn('Ground PBR material failed',error));
+    environmentGLTFLoader.load(asset.url,gltf=>{let sourceMaterial=null;gltf.scene.traverse(node=>{if(!sourceMaterial&&node.isMesh)sourceMaterial=Array.isArray(node.material)?node.material[0]:node.material;});if(!sourceMaterial){otherFailed++;refreshStatus();console.error('Ground material has no mesh:',asset.url);return;}const material=sourceMaterial.clone();for(const key of ['map','normalMap','roughnessMap','aoMap','metalnessMap']){const texture=material[key];if(texture){texture.wrapS=texture.wrapT=THREE.RepeatWrapping;texture.repeat.set(asset.repeat||12,asset.repeat||12);texture.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());}}material.color.set(0xffffff);material.roughness=Math.max(material.roughness||0,.82);ground.material=material;ground.material.needsUpdate=true;otherLoaded++;refreshStatus();},undefined,error=>{otherFailed++;refreshStatus();console.error('Ground PBR material failed:',asset.url,error);});
     continue;
    }
    if(!asset.url)continue;
    environmentGLTFLoader.load(asset.url,gltf=>{
+    let meshCount=0;
     const placements=asset.placements||[{position:asset.position||[0,0,0],rotation:asset.rotation||[0,0,0],scale:asset.scale||1}];
     for(const placement of placements){
      const model=gltf.scene.clone(true);
@@ -29,15 +40,20 @@ async function loadEnvironmentAssetManifest(){
      model.scale.setScalar(placement.scale||1);
      model.updateMatrixWorld(true);
      const bounds=new THREE.Box3().setFromObject(model);
-     if(Number.isFinite(bounds.min.y))model.position.y=(placement.position?.[1]||0)-bounds.min.y;
-     model.position.x=placement.position?.[0]||0;
-     model.position.z=placement.position?.[2]||0;
-     model.traverse(node=>{if(node.isMesh){node.castShadow=asset.castShadow!==false;node.receiveShadow=asset.receiveShadow!==false;if(node.material){const materials=Array.isArray(node.material)?node.material:[node.material];for(const material of materials){if(material.map)material.map.colorSpace=THREE.SRGBColorSpace;if(material.normalMap)material.normalScale.setScalar(asset.normalScale||1);if(material.transparent||material.alphaTest>0){material.alphaTest=Math.max(material.alphaTest||0,.42);material.depthWrite=true;}}}}});
+     const x=placement.position?.[0]||0,z=placement.position?.[2]||0;
+     const terrainY=typeof terrainHeightAt==='function'?terrainHeightAt(x,z):(placement.position?.[1]||0);
+     if(Number.isFinite(bounds.min.y))model.position.y=terrainY-bounds.min.y;
+     model.position.x=x;
+     model.position.z=z;
+     model.traverse(node=>{if(node.isMesh){meshCount++;node.castShadow=asset.castShadow!==false;node.receiveShadow=asset.receiveShadow!==false;if(node.material){const materials=Array.isArray(node.material)?node.material:[node.material];for(const material of materials){if(material.map)material.map.colorSpace=THREE.SRGBColorSpace;if(material.normalMap)material.normalScale.setScalar(asset.normalScale||1);if(material.transparent||material.alphaTest>0){material.alphaTest=Math.max(material.alphaTest||0,.42);material.depthWrite=true;}}}}});
      scene.add(model);
     }
-   },undefined,error=>console.warn(`Environment asset failed: ${asset.id||asset.url}`,error));
+    if(/tree/i.test(asset.id||''))treeLoaded+=placements.length;else otherLoaded++;
+    refreshStatus();
+    console.info(`Environment asset loaded: ${asset.id}; meshes=${meshCount}; instances=${placements.length}`);
+   },undefined,error=>{if(/tree/i.test(asset.id||''))treeFailed+=placements.length;else otherFailed++;refreshStatus();console.error(`Environment asset failed: ${asset.id||asset.url}`,asset.url,error);});
   }
- }catch(error){console.info('Environment GLB manifest not loaded; procedural scene remains active.',error);}
+ }catch(error){environmentStatus.textContent='環境模型載入失敗：'+error.message;console.error('Environment manifest failed',error);}
 }
 const materialCache=new Map();const mat=c=>{if(!materialCache.has(c)){const concreteColors=[0x777d76,0x9a927e,0x777b70,0x77796d,0x626b65,0x696f69,0x8c806d,0x77796f];const asphaltColors=[0x555e59,0x454b49];const map=concreteColors.includes(c)?surfaceMaps.concrete:asphaltColors.includes(c)?surfaceMaps.asphalt:null;materialCache.set(c,new THREE.MeshStandardMaterial({color:c,roughness:map?.98:.86,map}));}return materialCache.get(c);};
 const worldSolids=[],solidBounds=[],pickupBounds=[],obstacleColliders=[],impactSurfaces=[];
