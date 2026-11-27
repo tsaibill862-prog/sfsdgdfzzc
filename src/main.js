@@ -513,7 +513,7 @@ pickupDefs.forEach(addPickup);
 const enemyMats=[0x665448,0x4c5d50,0x625c4b,0x4c5257,0x66504a];
 function addEnemy(x,z,i){const g=new THREE.Group();const rig=soldierVisual(g,enemyMats[i%5],i%2?0x303b35:0x3b3930,0x9c765e);rig.visual.scale.setScalar(.44);const hitbox=new THREE.Mesh(new THREE.BoxGeometry(.42,.9,.36),new THREE.MeshBasicMaterial({visible:false}));hitbox.position.y=.46;hitbox.userData.enemy=g;g.add(hitbox);const floor=terrainHeightAt(x,z);g.position.set(x,floor,z);scene.add(g);const e={group:g,rig,weaponOutUntil:0,hitbox,hp:100,alive:true,cooldown:1+Math.random()*1.4,phase:Math.random()*6,spawn:new THREE.Vector3(x,floor,z)};g.userData.enemy=e;hitbox.userData.enemy=e;enemies.push(e);}
 [[-19,-22],[19,-23],[-25,18],[25,17],[0,-36]].forEach((p,i)=>addEnemy(p[0],p[1],i));
-function hud(){const w=weapons[wi],has=ownedWeapons[wi];document.querySelector('#hp').textContent=Math.ceil(hp);document.querySelector('#kills').textContent=kills;document.querySelector('#left').textContent=multiplayerMode?[...remotePlayers.values()].filter(p=>p.alive).length+(dead?0:1):enemies.filter(e=>e.alive).length;document.querySelector('#weapon').textContent=has?w.name:'尚未取得武器';document.querySelector('#ammo').textContent=has?w.ammo:'—';document.querySelector('#reserve').textContent=has?'/ '+w.reserve+(reloading?' · 裝填中':''):'/ —';document.querySelector('#hint').textContent=has?w.hint:'探索建築與倉庫，按 F 拾取武器';document.querySelector('#damage').style.opacity=hp<45?String((45-hp)/60):'0';}
+function hud(){const w=weapons[wi],has=ownedWeapons[wi];document.querySelector('#hp').textContent=Math.ceil(hp);document.querySelector('#kills').textContent=kills;document.querySelector('#left').textContent=multiplayerMode?[...remotePlayers.values()].filter(p=>p.alive).length:enemies.filter(e=>e.alive).length;document.querySelector('#weapon').textContent=has?w.name:'尚未取得武器';document.querySelector('#ammo').textContent=has?w.ammo:'—';document.querySelector('#reserve').textContent=has?'/ '+w.reserve+(reloading?' · 裝填中':''):'/ —';document.querySelector('#hint').textContent=has?w.hint:'探索建築與倉庫，按 F 拾取武器';document.querySelector('#damage').style.opacity=hp<45?String((45-hp)/60):'0';}
 let toastTimer;function toast(s){const el=document.querySelector('#toast');el.textContent=s;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),1100);}
 
 function initAudio(){
@@ -578,7 +578,7 @@ function makeRemotePlayer(data){
 }
 function clearRemotePlayers(){for(const p of remotePlayers.values())scene.remove(p.group);remotePlayers.clear();}
 function multiplayerDeath(won=false){
- if(dead&& !won)return;dead=!won;paused=false;document.exitPointerLock?.();
+ if(dead&& !won)return;dead=true;paused=false;document.exitPointerLock?.();
  document.querySelector('#overlay').classList.add('visible');
  document.querySelector('#desc').textContent=won?'大逃殺勝利！你是最後存活者。':'你已被其他真人玩家淘汰。';
  document.querySelector('#start').textContent='返回大廳';
