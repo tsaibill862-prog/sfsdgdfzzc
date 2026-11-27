@@ -44,8 +44,8 @@ function addWallSegment(segment){
  for(let ix=ix0;ix<=ix1;ix++)for(let iz=iz0;iz<=iz1;iz++){const key=ix+','+iz;let bucket=wallSegmentBuckets.get(key);if(!bucket){bucket=[];wallSegmentBuckets.set(key,bucket);}bucket.push(segment);}
 }
 async function loadEnvironmentAssetManifest(){
- let treeExpected=0,treeLoaded=0,treeFailed=0,otherLoaded=0,otherFailed=0;
- const refreshStatus=()=>{environmentStatus.textContent=`環境模型：樹木 ${treeLoaded}/${treeExpected} 棵（${treeFailed} 失敗） · 其他模型 ${otherLoaded} 成功（${otherFailed} 失敗）`;};
+ let treeExpected=0,treeLoaded=0,treeFailed=0,otherLoaded=0,otherFailed=0,loadingAsset='';
+ const refreshStatus=()=>{environmentStatus.textContent=`環境模型：樹木 ${treeLoaded}/${treeExpected} 棵（${treeFailed} 失敗） · 其他模型 ${otherLoaded} 成功（${otherFailed} 失敗）${loadingAsset?' · 載入中：'+loadingAsset:''}`;};
  const yieldFrame=()=>new Promise(resolve=>requestAnimationFrame(()=>resolve()));
  try{
   const response=await fetch('/assets/environment/manifest.json',{cache:'no-cache'});
@@ -57,6 +57,10 @@ async function loadEnvironmentAssetManifest(){
   // Load one source model at a time. This avoids simultaneous texture decoding spikes.
   for(const asset of assets){
    if(!asset.url)continue;
+   const isTree=/tree/i.test(asset.id||'');
+   const placementsForAsset=(asset.placements||[{position:asset.position||[0,0,0],rotation:asset.rotation||[0,0,0],scale:asset.scale||1}]).slice(0,isTree?6:undefined);
+   let placedCount=0;
+   loadingAsset=asset.id||asset.url;refreshStatus();
    try{
     const gltf=await environmentGLTFLoader.loadAsync(asset.url);
     if(asset.type==='ground-material'){
@@ -72,8 +76,7 @@ async function loadEnvironmentAssetManifest(){
      ground.material=material;ground.material.needsUpdate=true;otherLoaded++;refreshStatus();await yieldFrame();continue;
     }
     let meshCount=0;
-    const isTree=/tree/i.test(asset.id||'');
-    const placements=(asset.placements||[{position:asset.position||[0,0,0],rotation:asset.rotation||[0,0,0],scale:asset.scale||1}]).slice(0,isTree?6:undefined);
+    const placements=placementsForAsset;
     for(let index=0;index<placements.length;index++){
      const placement=placements[index];
      const model=gltf.scene.clone(true);
@@ -115,16 +118,17 @@ async function loadEnvironmentAssetManifest(){
       console.info(`Environment triangle wall collision segments: ${asset.id}; segments=${segmentCount}`);
      }
      scene.add(model);
+     if(isTree){placedCount++;treeLoaded++;refreshStatus();}
      // Yield every two placed instances so the game loop and input remain responsive.
      if(index%2===1)await yieldFrame();
     }
-    if(/tree/i.test(asset.id||''))treeLoaded+=placements.length;else otherLoaded++;
-    refreshStatus();
+    if(!isTree)otherLoaded++;
+    loadingAsset='';refreshStatus();
     console.info(`Environment asset loaded: ${asset.id}; meshes=${meshCount}; instances=${placements.length}`);
     await yieldFrame();
    }catch(error){
-    if(/tree/i.test(asset.id||''))treeFailed+=(asset.placements?.length||1);else otherFailed++;
-    refreshStatus();console.error(`Environment asset failed: ${asset.id||asset.url}`,asset.url,error);
+    if(isTree)treeFailed+=Math.max(0,placementsForAsset.length-placedCount);else otherFailed++;
+    loadingAsset='';refreshStatus();console.error(`Environment asset failed: ${asset.id||asset.url}`,asset.url,error);
    }
   }
   refreshStatus();
