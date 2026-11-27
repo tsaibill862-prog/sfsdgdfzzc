@@ -79,7 +79,7 @@ function applyShot(p,msg){
   if(best.hp===0){best.alive=false;p.kills++;broadcast(room,{type:'playerEliminated',id:best.id,by:p.id,kills:p.kills});}
   else send(best.ws,{type:'damaged',hp:best.hp,by:p.id});
   send(p.ws,{type:'hitConfirmed',target:best.id,eliminated:!best.alive,kills:p.kills});
-  broadcast(room,{type:'playerHealth',id:best.id,hp:best.hp,alive:best.alive},best.ws);
+  broadcast(room,{type:'playerHealth',id:best.id,hp:best.hp,alive:best.alive});
   const survivors=[...room.players.values()].filter(v=>v.alive);
   if(survivors.length===1&&!room.ended){room.ended=true;send(p.ws,{type:'victory',kills:p.kills});broadcast(room,{type:'matchEnded',winner:p.id},p.ws);}
  }
