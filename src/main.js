@@ -15,7 +15,23 @@ const environmentStatus=document.createElement('div');
 environmentStatus.id='environmentAssetStatus';
 environmentStatus.style.cssText='position:fixed;left:12px;top:12px;z-index:30;padding:7px 10px;background:rgba(8,16,13,.78);border:1px solid rgba(180,205,170,.35);border-radius:5px;color:#e8f0df;font:12px/1.45 system-ui;pointer-events:none;max-width:310px';
 environmentStatus.textContent='環境模型：載入中…';
-root.appendChild(environmentStatus);
+document.body.appendChild(environmentStatus);
+environmentStatus.style.zIndex='99999';
+const fallbackTreeMaterial=new THREE.MeshStandardMaterial({color:0x51402c,roughness:1});
+const fallbackLeafMaterials=[0x344d35,0x405b38,0x526b3d].map(color=>new THREE.MeshStandardMaterial({color,roughness:1}));
+function addFallbackTree(placement){
+ const tree=new THREE.Group();
+ const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.13,.23,2.7,7),fallbackTreeMaterial);
+ trunk.position.y=1.35;trunk.castShadow=true;trunk.receiveShadow=true;tree.add(trunk);
+ for(let tier=0;tier<3;tier++){
+  const foliage=new THREE.Mesh(new THREE.ConeGeometry(1.05-tier*.17,2.25,7),fallbackLeafMaterials[tier]);
+  foliage.position.y=2.15+tier*.72;foliage.castShadow=true;foliage.receiveShadow=true;tree.add(foliage);
+ }
+ const x=placement.position?.[0]||0,z=placement.position?.[2]||0;
+ tree.position.set(x,typeof terrainHeightAt==='function'?terrainHeightAt(x,z):0,z);
+ tree.rotation.y=placement.rotation?.[1]||0;tree.scale.setScalar((placement.scale||1)*.95);
+ tree.userData.fallbackTree=true;scene.add(tree);return tree;
+}
 function getWallCollisionSegments(mesh){
  const geometry=mesh.geometry,position=geometry.attributes.position,index=geometry.index;
  const triangleCount=Math.floor((index?index.count:position.count)/3);
@@ -60,6 +76,7 @@ async function loadEnvironmentAssetManifest(){
    const isTree=/tree/i.test(asset.id||'');
    const placementsForAsset=(asset.placements||[{position:asset.position||[0,0,0],rotation:asset.rotation||[0,0,0],scale:asset.scale||1}]).slice(0,isTree?6:undefined);
    let placedCount=0;
+   const fallbackTrees=isTree?placementsForAsset.map(addFallbackTree):[];
    loadingAsset=asset.id||asset.url;refreshStatus();
    try{
     const gltf=await environmentGLTFLoader.loadAsync(asset.url);
@@ -122,6 +139,7 @@ async function loadEnvironmentAssetManifest(){
      // Yield every two placed instances so the game loop and input remain responsive.
      if(index%2===1)await yieldFrame();
     }
+    if(isTree){for(const fallback of fallbackTrees)scene.remove(fallback);}
     if(!isTree)otherLoaded++;
     loadingAsset='';refreshStatus();
     console.info(`Environment asset loaded: ${asset.id}; meshes=${meshCount}; instances=${placements.length}`);
