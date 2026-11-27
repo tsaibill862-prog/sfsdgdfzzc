@@ -384,23 +384,7 @@ function observationTower(x,z){
  deck.position.set(x,deckY,z);deck.castShadow=true;deck.receiveShadow=true;scene.add(deck);
  obstacleColliders.push({kind:'box',x,z,halfX:2.55,halfZ:2.4,minY:deckY-deckThickness/2,maxY:deckY+deckThickness/2,jumpable:false});
  const towerIndex=towerClimbs.length;towerClimb={x,z,base,ladderX:x+2.05,deckY:deckY+deckThickness/2,towerIndex};towerClimbs.push(towerClimb);
- // Guardrails on the four edges, leaving the ladder-side entry open.
- for(const side of [-1,1]){
-  const rail=new THREE.Mesh(new THREE.BoxGeometry(5.0,.13,.13),steel);
-  rail.position.set(x,deckY+.72,z+side*2.32);rail.castShadow=true;scene.add(rail);
-  for(const dx of [-2.35,0,2.35]){
-   const post=new THREE.Mesh(new THREE.BoxGeometry(.12,1.35,.12),steel);
-   post.position.set(x+dx,deckY+.66,z+side*2.32);post.castShadow=true;scene.add(post);
-  }
- }
- for(const side of [-1,1]){
-  const rail=new THREE.Mesh(new THREE.BoxGeometry(.13,.13,4.55),steel);
-  rail.position.set(x+side*2.48,deckY+.72,z);rail.castShadow=true;scene.add(rail);
-  for(const dz of [-2.1,0,2.1]){
-   const post=new THREE.Mesh(new THREE.BoxGeometry(.12,1.35,.12),steel);
-   post.position.set(x+side*2.48,deckY+.66,z+dz);post.castShadow=true;scene.add(post);
-  }
- }
+ // Open observation deck: perimeter guardrails removed for an unobstructed view.
  // Long fixed ladder on the east face; the player climbs while Space is held.
  for(let i=0;i<31;i++){
   const rung=new THREE.Mesh(new THREE.BoxGeometry(.96,.1,.14),steel);
